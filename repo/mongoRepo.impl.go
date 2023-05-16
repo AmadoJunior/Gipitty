@@ -45,14 +45,14 @@ func (r *MongoRepoImpl) SelectRepository(dbName string, repoName string) error {
 	return nil
 }
 
-func (r MongoRepoImpl) InsertOne(data interface{}) (interface{}, error) {
+func (r MongoRepoImpl) InsertOne(data interface{}) (InsertedResult, error) {
 	result, err := r.repo.InsertOne(r.ctx, &data)
 
 	if err != nil {
-		return nil, err
+		return InsertedResult{}, err
 	}
 
-	return result.InsertedID, nil
+	return InsertedResult{InsertedID: result.InsertedID}, nil
 }
 
 func (r MongoRepoImpl) FindOne(result *models.DBResponse, filter primitive.M) (*models.DBResponse, error) {
@@ -67,12 +67,16 @@ func (r MongoRepoImpl) FindOne(result *models.DBResponse, filter primitive.M) (*
 	return result, nil
 }
 
-func (r MongoRepoImpl) UpdateOne(filter primitive.M, update primitive.M) error {
-	_, err := r.repo.UpdateOne(r.ctx, filter, update)
+func (r MongoRepoImpl) UpdateOne(filter primitive.M, update primitive.M) (UpdatedResult, error) {
+	res, err := r.repo.UpdateOne(r.ctx, filter, update)
 
 	if err != nil {
-		return err
+		return UpdatedResult{}, err
 	}
 
-	return nil
+	return UpdatedResult{
+		MatchedCount:  int(res.MatchedCount),
+		ModifiedCount: int(res.ModifiedCount),
+		UpsertedCount: int(res.UpsertedCount),
+		UpsertedID:    res.UpsertedID}, nil
 }

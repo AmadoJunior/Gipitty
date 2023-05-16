@@ -17,6 +17,10 @@ type MongoRepoImpl struct {
 	repo   mongo.Collection
 }
 
+func NewMongoRepo() *MongoRepoImpl {
+	return &MongoRepoImpl{}
+}
+
 func (r *MongoRepoImpl) Connect(ctx context.Context, dbUri string) error {
 	//Connect to MongoDB
 	mongoConn := options.Client().ApplyURI(dbUri)
@@ -41,14 +45,14 @@ func (r *MongoRepoImpl) SelectRepository(dbName string, repoName string) error {
 	return nil
 }
 
-func (r MongoRepoImpl) InsertOne(data interface{}) error {
-	_, err := r.repo.InsertOne(r.ctx, &data)
+func (r MongoRepoImpl) InsertOne(data interface{}) (interface{}, error) {
+	result, err := r.repo.InsertOne(r.ctx, &data)
 
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return result.InsertedID, nil
 }
 
 func (r MongoRepoImpl) FindOne(result *models.DBResponse, filter primitive.M) (*models.DBResponse, error) {

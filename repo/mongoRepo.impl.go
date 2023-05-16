@@ -51,8 +51,8 @@ func (r MongoRepoImpl) InsertOne(data interface{}) error {
 	return nil
 }
 
-func (r MongoRepoImpl) FindOne(filter primitive.M) (*models.DBResponse, error) {
-	var result *models.DBResponse
+func (r MongoRepoImpl) FindOne(result *models.DBResponse, filter primitive.M) (*models.DBResponse, error) {
+	//var result *models.DBResponse
 
 	err := r.repo.FindOne(r.ctx, filter).Decode(result)
 

@@ -5,7 +5,7 @@ import "context"
 type IRepo interface {
 	Connect(ctx context.Context, dbUri string) error
 	SelectRepository(dbName string, repoName string) error
-	InsertOne(ctx context.Context, data interface{}) error
-	FindOne(ctx context.Context, filter interface{}) (*interface{}, error)
-	UpdateOne(ctx context.Context, filter interface{}, data interface{}) error
+	InsertOne(data interface{}) error
+	FindOne(result *interface{}, filter interface{}) (*interface{}, error)
+	UpdateOne(filter interface{}, data interface{}) error
 }

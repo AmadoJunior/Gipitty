@@ -8,27 +8,25 @@ import (
 
 	"github.com/AmadoJunior/Gipitty/config"
 	"github.com/AmadoJunior/Gipitty/controllers"
+	"github.com/AmadoJunior/Gipitty/repos/userRepo"
 	"github.com/AmadoJunior/Gipitty/routes"
 	"github.com/AmadoJunior/Gipitty/services"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
-	"go.mongodb.org/mongo-driver/mongo/readpref"
 )
 
 var (
 	server      *gin.Engine
 	ctx         context.Context
-	mongoClient *mongo.Client
 	redisClient *redis.Client
+
+	userRepository userRepo.IUserRepo
 
 	userService         services.UserService
 	UserController      controllers.UserController
 	UserRouteController routes.UserRouteController
 
-	authCollection      *mongo.Collection
 	authService         services.AuthService
 	AuthController      controllers.AuthController
 	AuthRouteController routes.AuthRouteController
@@ -44,19 +42,14 @@ func init() {
 	//Context
 	ctx = context.Background()
 
-	//Connect to MongoDB
-	mongoConn := options.Client().ApplyURI(config.DBUri)
-	mongoClient, err := mongo.Connect(ctx, mongoConn)
+	//Create User Repository
+	userRepository = userRepo.NewUserRepo(ctx)
 
 	if err != nil {
 		panic(err)
 	}
 
-	if err := mongoClient.Ping(ctx, readpref.Primary()); err != nil {
-		panic(err)
-	}
-
-	fmt.Println("MongoDB Successfully Connected...")
+	fmt.Println("user repo succesfully initiated...")
 
 	//Connect to Redis
 	redisClient = redis.NewClient(&redis.Options{
@@ -75,14 +68,17 @@ func init() {
 		panic(err)
 	}
 
-	fmt.Println("Redis Successfully Connected...")
+	fmt.Println("redis successfully connected...")
 
-	//Collection
-	authCollection = mongoClient.Database("Gipitty").Collection("users")
+	//Init User Repo
+	err = userRepository.InitRepository(config.DBUri, "Gipitty", "users")
+	if err != nil {
+		panic(err)
+	}
 
 	//Auth
-	userService = services.NewUserServiceImpl(authCollection, ctx)
-	authService = services.NewAuthServiceImpl(authCollection, ctx)
+	userService = services.NewUserServiceImpl(userRepository, ctx)
+	authService = services.NewAuthServiceImpl(userRepository, ctx)
 
 	AuthController = controllers.NewAuthController(authService, userService)
 	UserController = controllers.NewUserController(userService)
@@ -101,7 +97,7 @@ func main() {
 		log.Fatal("Failed Loading ENV", err)
 	}
 
-	defer mongoClient.Disconnect(ctx)
+	defer userRepository.DeinitRepository()
 
 	value, err := redisClient.Get(ctx, "test").Result()
 	if err == redis.Nil {

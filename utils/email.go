@@ -3,7 +3,6 @@ package utils
 import (
 	"bytes"
 	"crypto/tls"
-	"fmt"
 	"html/template"
 	"log"
 	"os"
@@ -30,7 +29,6 @@ func ParseTemplateDir(dir string, templateName string) (*template.Template, erro
 			return err
 		}
 		if !info.IsDir() {
-			fmt.Println(path)
 			if path == "templates/base.html" || path == "templates/styles.html" || path == "templates/"+templateName {
 				paths = append(paths, path)
 			}
@@ -41,7 +39,6 @@ func ParseTemplateDir(dir string, templateName string) (*template.Template, erro
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println(paths)
 	return template.ParseFiles(paths...)
 }
 
@@ -66,11 +63,8 @@ func SendEmail(user *models.DBResponse, data *EmailData, templateName string) er
 	if err != nil {
 		log.Fatal("Could not parse template", err)
 	}
-	fmt.Println(template.DefinedTemplates())
 	newTemplate := template.Lookup(templateName)
-	fmt.Println(newTemplate.Name())
 	tempErr := newTemplate.Execute(&body, &data)
-	fmt.Println(body.String())
 	if tempErr != nil {
 		log.Fatal("Template execution failed:", tempErr)
 	}

@@ -199,8 +199,6 @@ func (ac *AuthController) VerifyEmail(ctx *gin.Context) {
 		return
 	}
 
-	fmt.Println(result)
-
 	ctx.JSON(http.StatusOK, gin.H{"status": "success", "message": "Email verified successfully"})
 
 }

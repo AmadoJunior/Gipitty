@@ -41,7 +41,7 @@ func (uc *AuthServiceImpl) SignUpUser(user *models.SignUpInput) (*models.DBRespo
 		return nil, errors.New("could not create index for user " + key)
 	}
 
-	var newUser *models.DBResponse
+	var newUser *models.DBResponse = &models.DBResponse{}
 	query := bson.M{"_id": res.InsertedUserID}
 	err = uc.userRepo.FindUser(newUser, query)
 	if err != nil {

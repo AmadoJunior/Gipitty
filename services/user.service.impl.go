@@ -23,7 +23,7 @@ func NewUserServiceImpl(userRepo userRepo.IUserRepo, ctx context.Context) UserSe
 
 func (us *UserServiceImpl) FindUserById(id string) (*models.DBResponse, error) {
 	oid, _ := primitive.ObjectIDFromHex(id)
-	var user *models.DBResponse
+	var user *models.DBResponse = &models.DBResponse{}
 	query := bson.M{"_id": oid}
 	err := us.userRepo.FindUser(user, query)
 
@@ -35,7 +35,7 @@ func (us *UserServiceImpl) FindUserById(id string) (*models.DBResponse, error) {
 }
 
 func (us *UserServiceImpl) FindUserByEmail(email string) (*models.DBResponse, error) {
-	var user *models.DBResponse
+	var user *models.DBResponse = &models.DBResponse{}
 
 	query := bson.M{"email": strings.ToLower(email)}
 	err := us.userRepo.FindUser(user, query)
@@ -50,7 +50,6 @@ func (us *UserServiceImpl) FindUserByEmail(email string) (*models.DBResponse, er
 func (uc *UserServiceImpl) UpdateUserById(id string, field string, value string) (*models.DBResponse, error) {
 	userId, idErr := primitive.ObjectIDFromHex(id)
 	if idErr != nil {
-		fmt.Print("ID ERR", idErr)
 		return &models.DBResponse{}, idErr
 	}
 	query := bson.D{{Key: "_id", Value: userId}}
@@ -58,7 +57,6 @@ func (uc *UserServiceImpl) UpdateUserById(id string, field string, value string)
 	result, err := uc.userRepo.UpdateUser(query, update, false)
 
 	if err != nil {
-		fmt.Print(err)
 		return &models.DBResponse{}, err
 	}
 	fmt.Print(result.ModifiedCount)
@@ -71,7 +69,6 @@ func (uc *UserServiceImpl) UpdateOne(field string, value interface{}) (*models.D
 	result, err := uc.userRepo.UpdateUser(query, update, false)
 
 	if err != nil {
-		fmt.Print(err)
 		return &models.DBResponse{}, err
 	}
 	fmt.Print(result.ModifiedCount)
@@ -96,7 +93,6 @@ func (uc *UserServiceImpl) StorePasswordResetToken(userEmail string, passwordRes
 	result, err := uc.userRepo.UpdateUser(query, update, false)
 
 	if err != nil {
-		fmt.Print(err)
 		return nil, err
 	}
 	fmt.Print(result.ModifiedCount)
@@ -109,7 +105,6 @@ func (uc *UserServiceImpl) ResetPassword(passwordResetToken string, newPassword 
 	result, err := uc.userRepo.UpdateUser(query, update, false)
 
 	if err != nil {
-		fmt.Print(err)
 		return nil, err
 	}
 	fmt.Print(result.ModifiedCount)

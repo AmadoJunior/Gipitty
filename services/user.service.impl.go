@@ -7,17 +7,17 @@ import (
 	"time"
 
 	"github.com/AmadoJunior/Gipitty/models"
-	"github.com/AmadoJunior/Gipitty/repos/userRepo"
+	"github.com/AmadoJunior/Gipitty/repos"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 type UserServiceImpl struct {
-	userRepo userRepo.IUserRepo
+	userRepo repos.IUserRepo
 	ctx      context.Context
 }
 
-func NewUserServiceImpl(userRepo userRepo.IUserRepo, ctx context.Context) UserService {
+func NewUserServiceImpl(userRepo repos.IUserRepo, ctx context.Context) UserService {
 	return &UserServiceImpl{userRepo, ctx}
 }
 
@@ -75,7 +75,7 @@ func (uc *UserServiceImpl) UpdateOne(field string, value interface{}) (*models.D
 	return &models.DBResponse{}, nil
 }
 
-func (uc *UserServiceImpl) VerifyEmail(verificationCode string) (*userRepo.UpdatedResult, error) {
+func (uc *UserServiceImpl) VerifyEmail(verificationCode string) (*repos.UpdatedResult, error) {
 	query := bson.D{{Key: "verificationCode", Value: verificationCode}}
 	update := bson.D{{Key: "$set", Value: bson.D{{Key: "verified", Value: true}}}, {Key: "$unset", Value: bson.D{{Key: "verificationCode", Value: ""}}}}
 	result, err := uc.userRepo.UpdateUser(query, update, false)
@@ -87,7 +87,7 @@ func (uc *UserServiceImpl) VerifyEmail(verificationCode string) (*userRepo.Updat
 	return result, nil
 }
 
-func (uc *UserServiceImpl) StorePasswordResetToken(userEmail string, passwordResetToken string) (*userRepo.UpdatedResult, error) {
+func (uc *UserServiceImpl) StorePasswordResetToken(userEmail string, passwordResetToken string) (*repos.UpdatedResult, error) {
 	query := bson.D{{Key: "email", Value: strings.ToLower(userEmail)}}
 	update := bson.D{{Key: "$set", Value: bson.D{{Key: "passwordResetToken", Value: passwordResetToken}, {Key: "passwordResetAt", Value: time.Now().Add(time.Minute * 15)}}}}
 	result, err := uc.userRepo.UpdateUser(query, update, false)
@@ -99,7 +99,7 @@ func (uc *UserServiceImpl) StorePasswordResetToken(userEmail string, passwordRes
 	return result, nil
 }
 
-func (uc *UserServiceImpl) ResetPassword(passwordResetToken string, newPassword string) (*userRepo.UpdatedResult, error) {
+func (uc *UserServiceImpl) ResetPassword(passwordResetToken string, newPassword string) (*repos.UpdatedResult, error) {
 	query := bson.D{{Key: "passwordResetToken", Value: passwordResetToken}}
 	update := bson.D{{Key: "$set", Value: bson.D{{Key: "password", Value: passwordResetToken}}}, {Key: "$unset", Value: bson.D{{Key: "passwordResetToken", Value: ""}, {Key: "passwordResetAt", Value: ""}}}}
 	result, err := uc.userRepo.UpdateUser(query, update, false)

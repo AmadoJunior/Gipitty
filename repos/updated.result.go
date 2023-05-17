@@ -1,4 +1,4 @@
-package userRepo
+package repos
 
 type UpdatedResult struct {
 	MatchedCount   int

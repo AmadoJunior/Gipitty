@@ -7,17 +7,17 @@ import (
 	"time"
 
 	"github.com/AmadoJunior/Gipitty/models"
-	"github.com/AmadoJunior/Gipitty/repos/userRepo"
+	"github.com/AmadoJunior/Gipitty/repos"
 	"github.com/AmadoJunior/Gipitty/utils"
 	"go.mongodb.org/mongo-driver/bson"
 )
 
 type AuthServiceImpl struct {
-	userRepo userRepo.IUserRepo
+	userRepo repos.IUserRepo
 	ctx      context.Context
 }
 
-func NewAuthServiceImpl(userRepo userRepo.IUserRepo, ctx context.Context) AuthService {
+func NewAuthServiceImpl(userRepo repos.IUserRepo, ctx context.Context) AuthService {
 	return &AuthServiceImpl{userRepo, ctx}
 }
 

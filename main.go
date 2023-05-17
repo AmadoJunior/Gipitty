@@ -8,7 +8,7 @@ import (
 
 	"github.com/AmadoJunior/Gipitty/config"
 	"github.com/AmadoJunior/Gipitty/controllers"
-	"github.com/AmadoJunior/Gipitty/repos/userRepo"
+	"github.com/AmadoJunior/Gipitty/repos"
 	"github.com/AmadoJunior/Gipitty/routes"
 	"github.com/AmadoJunior/Gipitty/services"
 	"github.com/gin-contrib/cors"
@@ -21,7 +21,7 @@ var (
 	ctx         context.Context
 	redisClient *redis.Client
 
-	userRepository userRepo.IUserRepo
+	userRepository repos.IUserRepo
 
 	userService         services.UserService
 	UserController      controllers.UserController
@@ -43,7 +43,7 @@ func init() {
 	ctx = context.Background()
 
 	//Create User Repository
-	userRepository = userRepo.NewUserRepo(ctx)
+	userRepository = repos.NewUserRepo(ctx)
 
 	if err != nil {
 		panic(err)

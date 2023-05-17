@@ -1,4 +1,4 @@
-package userRepo
+package repos
 
 type IUserRepo interface {
 	connect(dbUri string) error

@@ -7,19 +7,18 @@ import (
 	"time"
 
 	"github.com/AmadoJunior/Gipitty/models"
+	"github.com/AmadoJunior/Gipitty/repos/userRepo"
 	"github.com/AmadoJunior/Gipitty/utils"
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type AuthServiceImpl struct {
-	collection *mongo.Collection
-	ctx        context.Context
+	userRepo userRepo.IUserRepo
+	ctx      context.Context
 }
 
-func NewAuthServiceImpl(collection *mongo.Collection, ctx context.Context) AuthService {
-	return &AuthServiceImpl{collection, ctx}
+func NewAuthServiceImpl(userRepo userRepo.IUserRepo, ctx context.Context) AuthService {
+	return &AuthServiceImpl{userRepo, ctx}
 }
 
 func (uc *AuthServiceImpl) SignUpUser(user *models.SignUpInput) (*models.DBResponse, error) {
@@ -32,27 +31,19 @@ func (uc *AuthServiceImpl) SignUpUser(user *models.SignUpInput) (*models.DBRespo
 
 	hashedPassword, _ := utils.HashPassword(user.Password)
 	user.Password = hashedPassword
-	res, err := uc.collection.InsertOne(uc.ctx, &user)
+	res, err := uc.userRepo.InsertUser(&user)
 
 	if err != nil {
-		if er, ok := err.(mongo.WriteException); ok && er.WriteErrors[0].Code == 11000 {
-			return nil, errors.New("user with that email already exist")
-		}
 		return nil, err
 	}
 
-	opt := options.Index()
-	opt.SetUnique(true)
-	index := mongo.IndexModel{Keys: bson.M{"email": 1}, Options: opt}
-
-	if _, err := uc.collection.Indexes().CreateOne(uc.ctx, index); err != nil {
-		return nil, errors.New("could not create index for email")
+	if key, err := uc.userRepo.CreateUserIndex("email", true); err != nil {
+		return nil, errors.New("could not create index for user " + key)
 	}
 
 	var newUser *models.DBResponse
-	query := bson.M{"_id": res.InsertedID}
-
-	err = uc.collection.FindOne(uc.ctx, query).Decode(&newUser)
+	query := bson.M{"_id": res.InsertedUserID}
+	err = uc.userRepo.FindUser(newUser, query)
 	if err != nil {
 		return nil, err
 	}

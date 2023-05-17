@@ -9,15 +9,16 @@ import (
 
 type UserRouteController struct {
 	userController controllers.UserController
+	userService    services.UserService
 }
 
-func NewRouteUserController(userController controllers.UserController) UserRouteController {
-	return UserRouteController{userController}
+func NewRouteUserController(userController controllers.UserController, userService services.UserService) UserRouteController {
+	return UserRouteController{userController, userService}
 }
 
-func (uc *UserRouteController) UserRoute(rg *gin.RouterGroup, userService services.UserService) {
+func (uc *UserRouteController) UserRoute(rg *gin.RouterGroup) {
 
 	router := rg.Group("/users")
-	router.Use(middleware.DeserializeUser(userService))
+	router.Use(middleware.DeserializeUser(uc.userService))
 	router.GET("/me", uc.userController.GetMe)
 }

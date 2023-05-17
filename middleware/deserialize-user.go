@@ -26,7 +26,7 @@ func DeserializeUser(userService services.UserService) gin.HandlerFunc {
 		}
 
 		if access_token == "" {
-			ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"status": "fail", "message": "You are not logged in"})
+			ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"status": "fail", "message": "you are not logged in"})
 			return
 		}
 
@@ -39,7 +39,7 @@ func DeserializeUser(userService services.UserService) gin.HandlerFunc {
 
 		user, err := userService.FindUserById(fmt.Sprint(sub))
 		if err != nil {
-			ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"status": "fail", "message": "The user belonging to this token no logger exists"})
+			ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"status": "fail", "message": "the user belonging to this token no logger exists"})
 			return
 		}
 

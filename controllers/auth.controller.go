@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -8,11 +9,11 @@ import (
 
 	"github.com/AmadoJunior/Gipitty/config"
 	"github.com/AmadoJunior/Gipitty/models"
+	"github.com/AmadoJunior/Gipitty/repos"
 	"github.com/AmadoJunior/Gipitty/services"
 	"github.com/AmadoJunior/Gipitty/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/thanhpk/randstr"
-	"go.mongodb.org/mongo-driver/mongo"
 )
 
 type AuthController struct {
@@ -33,24 +34,24 @@ func (ac *AuthController) SignUpUser(ctx *gin.Context) {
 	}
 
 	if user.Password != user.PasswordConfirm {
-		ctx.JSON(http.StatusBadRequest, gin.H{"status": "fail", "message": "Passwords do not match"})
+		ctx.JSON(http.StatusBadRequest, gin.H{"status": "fail", "message": "passwords do not match"})
 		return
 	}
 
 	newUser, err := ac.authService.SignUpUser(user)
 
 	if err != nil {
-		if strings.Contains(err.Error(), "email already exist") {
+		if errors.Is(err, repos.ErrDuplicateEmail) {
 			ctx.JSON(http.StatusConflict, gin.H{"status": "error", "message": err.Error()})
 			return
 		}
-		ctx.JSON(http.StatusBadGateway, gin.H{"status": "error", "message": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": err.Error()})
 		return
 	}
 
 	config, err := config.LoadConfig(".")
 	if err != nil {
-		log.Fatal("Could not load config", err)
+		log.Fatal("could not load config", err)
 	}
 
 	// Generate Verification Code
@@ -59,9 +60,12 @@ func (ac *AuthController) SignUpUser(ctx *gin.Context) {
 	verificationCode := utils.Encode(code)
 
 	// Update User in Database
-	_, updateErr := ac.userService.UpdateUserById(newUser.ID.Hex(), "verificationCode", verificationCode)
-	if updateErr != nil {
-		log.Fatal("Could Update User By ID", err)
+	updateData := &models.UpdateInput{
+		VerificationCode: verificationCode,
+	}
+	_, err = ac.userService.UpdateUserById(newUser.ID.Hex(), updateData)
+	if err != nil {
+		log.Fatal("could update user by id", err)
 	}
 
 	var firstName = newUser.Name
@@ -79,11 +83,11 @@ func (ac *AuthController) SignUpUser(ctx *gin.Context) {
 
 	err = utils.SendEmail(newUser, &emailData, "verificationCode.html")
 	if err != nil {
-		ctx.JSON(http.StatusBadGateway, gin.H{"status": "success", "message": "There was an error sending email"})
+		ctx.JSON(http.StatusBadGateway, gin.H{"status": "success", "message": "there was an error sending email"})
 		return
 	}
 
-	message := "We sent an email with a verification code to " + user.Email
+	message := "we sent an email with a verification code to " + user.Email
 	ctx.JSON(http.StatusCreated, gin.H{"status": "success", "message": message})
 }
 
@@ -97,8 +101,8 @@ func (ac *AuthController) SignInUser(ctx *gin.Context) {
 
 	user, err := ac.userService.FindUserByEmail(credentials.Email)
 	if err != nil {
-		if err == mongo.ErrNoDocuments {
-			ctx.JSON(http.StatusBadRequest, gin.H{"status": "fail", "message": "Invalid email or password"})
+		if errors.Is(err, repos.ErrUserNotFound) {
+			ctx.JSON(http.StatusBadRequest, gin.H{"status": "fail", "message": "invalid email or password"})
 			return
 		}
 		ctx.JSON(http.StatusBadRequest, gin.H{"status": "fail", "message": err.Error()})
@@ -106,12 +110,12 @@ func (ac *AuthController) SignInUser(ctx *gin.Context) {
 	}
 
 	if !user.Verified {
-		ctx.JSON(http.StatusUnauthorized, gin.H{"status": "fail", "message": "You are not verified, please verify your email to login"})
+		ctx.JSON(http.StatusUnauthorized, gin.H{"status": "fail", "message": "you are not verified, please verify your email to login"})
 		return
 	}
 
 	if err := utils.VerifyPassword(user.Password, credentials.Password); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"status": "fail", "message": "Invalid email or Password"})
+		ctx.JSON(http.StatusBadRequest, gin.H{"status": "fail", "message": "invalid email or password"})
 		return
 	}
 
@@ -188,18 +192,13 @@ func (ac *AuthController) VerifyEmail(ctx *gin.Context) {
 	code := ctx.Params.ByName("verificationCode")
 	verificationCode := utils.Encode(code)
 
-	result, err := ac.userService.VerifyEmail(verificationCode)
+	err := ac.userService.VerifyUserEmail(verificationCode)
 	if err != nil {
-		ctx.JSON(http.StatusForbidden, gin.H{"status": "success", "message": err.Error()})
+		ctx.JSON(http.StatusForbidden, gin.H{"status": "success", "message": "could not verify email address"})
 		return
 	}
 
-	if result.MatchedCount == 0 {
-		ctx.JSON(http.StatusForbidden, gin.H{"status": "success", "message": "Could not verify email address"})
-		return
-	}
-
-	ctx.JSON(http.StatusOK, gin.H{"status": "success", "message": "Email verified successfully"})
+	ctx.JSON(http.StatusOK, gin.H{"status": "success", "message": "email verified successfully"})
 
 }
 
@@ -211,11 +210,11 @@ func (ac *AuthController) ForgotPassword(ctx *gin.Context) {
 		return
 	}
 
-	message := "You will receive a reset email if user with that email exist"
+	message := "you will receive a reset email if user with that email exist"
 
 	user, err := ac.userService.FindUserByEmail(userCredential.Email)
 	if err != nil {
-		if err == mongo.ErrNoDocuments {
+		if errors.Is(err, repos.ErrUserNotFound) {
 			ctx.JSON(http.StatusOK, gin.H{"status": "fail", "message": message})
 			return
 		}
@@ -224,7 +223,7 @@ func (ac *AuthController) ForgotPassword(ctx *gin.Context) {
 	}
 
 	if !user.Verified {
-		ctx.JSON(http.StatusUnauthorized, gin.H{"status": "error", "message": "Account not verified"})
+		ctx.JSON(http.StatusUnauthorized, gin.H{"status": "error", "message": "account not verified"})
 		return
 	}
 
@@ -239,14 +238,12 @@ func (ac *AuthController) ForgotPassword(ctx *gin.Context) {
 	passwordResetToken := utils.Encode(resetToken)
 
 	// Update User in Database
-	result, err := ac.userService.StorePasswordResetToken(userCredential.Email, passwordResetToken)
-
-	if result.MatchedCount == 0 {
-		ctx.JSON(http.StatusBadGateway, gin.H{"status": "success", "message": "There was an error sending email"})
-		return
-	}
+	err = ac.userService.StorePasswordResetToken(userCredential.Email, passwordResetToken)
 
 	if err != nil {
+		if errors.Is(err, repos.ErrUserNotFound) {
+			ctx.JSON(http.StatusBadGateway, gin.H{"status": "success", "message": "there was an error sending email"})
+		}
 		ctx.JSON(http.StatusForbidden, gin.H{"status": "success", "message": err.Error()})
 		return
 	}
@@ -256,7 +253,7 @@ func (ac *AuthController) ForgotPassword(ctx *gin.Context) {
 		firstName = strings.Split(firstName, " ")[1]
 	}
 
-	// ? Send Email
+	// Send Email
 	emailData := utils.EmailData{
 		URL:       config.Origin + "/resetpassword/" + resetToken,
 		FirstName: firstName,
@@ -265,7 +262,7 @@ func (ac *AuthController) ForgotPassword(ctx *gin.Context) {
 
 	err = utils.SendEmail(user, &emailData, "resetPassword.html")
 	if err != nil {
-		ctx.JSON(http.StatusBadGateway, gin.H{"status": "success", "message": "There was an error sending email"})
+		ctx.JSON(http.StatusBadGateway, gin.H{"status": "success", "message": "there was an error sending email"})
 		return
 	}
 	ctx.JSON(http.StatusOK, gin.H{"status": "success", "message": message})
@@ -281,7 +278,7 @@ func (ac *AuthController) ResetPassword(ctx *gin.Context) {
 	}
 
 	if userCredential.Password != userCredential.PasswordConfirm {
-		ctx.JSON(http.StatusBadRequest, gin.H{"status": "fail", "message": "Passwords do not match"})
+		ctx.JSON(http.StatusBadRequest, gin.H{"status": "fail", "message": "passwords do not match"})
 		return
 	}
 
@@ -290,16 +287,17 @@ func (ac *AuthController) ResetPassword(ctx *gin.Context) {
 	passwordResetToken := utils.Encode(resetToken)
 
 	// Update User in Database
-	result, err := ac.userService.ResetPassword(passwordResetToken, hashedPassword)
-
-	if result.MatchedCount == 0 {
-		ctx.JSON(http.StatusBadRequest, gin.H{"status": "success", "message": "Token is invalid or has expired"})
-		return
-	}
+	err := ac.userService.ResetUserPassword(passwordResetToken, hashedPassword)
 
 	if err != nil {
-		ctx.JSON(http.StatusForbidden, gin.H{"status": "success", "message": err.Error()})
-		return
+		if errors.Is(err, repos.ErrUserNotFound) {
+			ctx.JSON(http.StatusBadRequest, gin.H{"status": "success", "message": "Token is invalid or has expired"})
+			return
+		}
+		if errors.Is(err, repos.ErrResetPassword) {
+			ctx.JSON(http.StatusForbidden, gin.H{"status": "success", "message": err.Error()})
+			return
+		}
 	}
 
 	ctx.SetCookie("access_token", "", -1, "/", "localhost", false, true)

@@ -1,16 +1,12 @@
 package services
 
-import (
-	"github.com/AmadoJunior/Gipitty/models"
-	"github.com/AmadoJunior/Gipitty/repos"
-)
+import "github.com/AmadoJunior/Gipitty/models"
 
 type UserService interface {
-	FindUserById(string) (*models.DBResponse, error)
-	FindUserByEmail(string) (*models.DBResponse, error)
-	UpdateUserById(id string, field string, value string) (*models.DBResponse, error)
-	UpdateOne(field string, value interface{}) (*models.DBResponse, error)
-	VerifyEmail(verificationCode string) (*repos.UpdatedResult, error)
-	StorePasswordResetToken(userEmail string, passwordResetToken string) (*repos.UpdatedResult, error)
-	ResetPassword(passwordResetToken string, newPassword string) (*repos.UpdatedResult, error)
+	FindUserById(id string) (*models.DBResponse, error)
+	FindUserByEmail(email string) (*models.DBResponse, error)
+	UpdateUserById(id string, data *models.UpdateInput) (*models.DBResponse, error)
+	VerifyUserEmail(verificationCode string) error
+	StorePasswordResetToken(userEmail string, passwordResetToken string) error
+	ResetUserPassword(passwordResetToken string, newPassword string) error
 }

@@ -23,13 +23,14 @@ var (
 
 	userRepository repos.IUserRepo
 
-	userService         services.UserService
-	UserController      controllers.UserController
-	UserRouteController routes.UserRouteController
+	userService services.UserService
+	authService services.AuthService
 
-	authService         services.AuthService
-	AuthController      controllers.AuthController
+	AuthController controllers.AuthController
+	UserController controllers.UserController
+
 	AuthRouteController routes.AuthRouteController
+	UserRouteController routes.UserRouteController
 )
 
 func init() {
@@ -84,7 +85,7 @@ func init() {
 	UserController = controllers.NewUserController(userService)
 
 	AuthRouteController = routes.NewAuthRouteController(AuthController)
-	UserRouteController = routes.NewRouteUserController(UserController)
+	UserRouteController = routes.NewRouteUserController(UserController, userService)
 
 	//Gin Server
 	server = gin.Default()
@@ -117,8 +118,8 @@ func main() {
 		ctx.JSON(http.StatusOK, gin.H{"status": "success", "message": value})
 	})
 
-	AuthRouteController.AuthRoute(router, userService)
-	UserRouteController.UserRoute(router, userService)
+	AuthRouteController.AuthRoute(router)
+	UserRouteController.UserRoute(router)
 
 	log.Fatal(server.Run(":" + config.Port))
 }

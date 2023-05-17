@@ -7,32 +7,27 @@ import (
 	"time"
 
 	"github.com/AmadoJunior/Gipitty/models"
+	"github.com/AmadoJunior/Gipitty/repos/userRepo"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.mongodb.org/mongo-driver/mongo"
 )
 
 type UserServiceImpl struct {
-	collection *mongo.Collection
-	ctx        context.Context
+	userRepo userRepo.IUserRepo
+	ctx      context.Context
 }
 
-func NewUserServiceImpl(collection *mongo.Collection, ctx context.Context) UserService {
-	return &UserServiceImpl{collection, ctx}
+func NewUserServiceImpl(userRepo userRepo.IUserRepo, ctx context.Context) UserService {
+	return &UserServiceImpl{userRepo, ctx}
 }
 
 func (us *UserServiceImpl) FindUserById(id string) (*models.DBResponse, error) {
 	oid, _ := primitive.ObjectIDFromHex(id)
-
 	var user *models.DBResponse
-
 	query := bson.M{"_id": oid}
-	err := us.collection.FindOne(us.ctx, query).Decode(&user)
+	err := us.userRepo.FindUser(user, query)
 
 	if err != nil {
-		if err == mongo.ErrNoDocuments {
-			return &models.DBResponse{}, err
-		}
 		return nil, err
 	}
 
@@ -43,12 +38,9 @@ func (us *UserServiceImpl) FindUserByEmail(email string) (*models.DBResponse, er
 	var user *models.DBResponse
 
 	query := bson.M{"email": strings.ToLower(email)}
-	err := us.collection.FindOne(us.ctx, query).Decode(&user)
+	err := us.userRepo.FindUser(user, query)
 
 	if err != nil {
-		if err == mongo.ErrNoDocuments {
-			return &models.DBResponse{}, err
-		}
 		return nil, err
 	}
 
@@ -63,7 +55,7 @@ func (uc *UserServiceImpl) UpdateUserById(id string, field string, value string)
 	}
 	query := bson.D{{Key: "_id", Value: userId}}
 	update := bson.D{{Key: "$set", Value: bson.D{{Key: field, Value: value}}}}
-	result, err := uc.collection.UpdateOne(uc.ctx, query, update)
+	result, err := uc.userRepo.UpdateUser(query, update, false)
 
 	if err != nil {
 		fmt.Print(err)
@@ -76,7 +68,7 @@ func (uc *UserServiceImpl) UpdateUserById(id string, field string, value string)
 func (uc *UserServiceImpl) UpdateOne(field string, value interface{}) (*models.DBResponse, error) {
 	query := bson.D{{Key: field, Value: value}}
 	update := bson.D{{Key: "$set", Value: bson.D{{Key: field, Value: value}}}}
-	result, err := uc.collection.UpdateOne(uc.ctx, query, update)
+	result, err := uc.userRepo.UpdateUser(query, update, false)
 
 	if err != nil {
 		fmt.Print(err)
@@ -86,23 +78,22 @@ func (uc *UserServiceImpl) UpdateOne(field string, value interface{}) (*models.D
 	return &models.DBResponse{}, nil
 }
 
-func (uc *UserServiceImpl) VerifyEmail(verificationCode string) (*mongo.UpdateResult, error) {
+func (uc *UserServiceImpl) VerifyEmail(verificationCode string) (*userRepo.UpdatedResult, error) {
 	query := bson.D{{Key: "verificationCode", Value: verificationCode}}
 	update := bson.D{{Key: "$set", Value: bson.D{{Key: "verified", Value: true}}}, {Key: "$unset", Value: bson.D{{Key: "verificationCode", Value: ""}}}}
-	result, err := uc.collection.UpdateOne(uc.ctx, query, update)
+	result, err := uc.userRepo.UpdateUser(query, update, false)
 
 	if err != nil {
-		fmt.Print(err)
 		return nil, err
 	}
 	fmt.Print(result.ModifiedCount)
 	return result, nil
 }
 
-func (uc *UserServiceImpl) StorePasswordResetToken(userEmail string, passwordResetToken string) (*mongo.UpdateResult, error) {
+func (uc *UserServiceImpl) StorePasswordResetToken(userEmail string, passwordResetToken string) (*userRepo.UpdatedResult, error) {
 	query := bson.D{{Key: "email", Value: strings.ToLower(userEmail)}}
 	update := bson.D{{Key: "$set", Value: bson.D{{Key: "passwordResetToken", Value: passwordResetToken}, {Key: "passwordResetAt", Value: time.Now().Add(time.Minute * 15)}}}}
-	result, err := uc.collection.UpdateOne(uc.ctx, query, update)
+	result, err := uc.userRepo.UpdateUser(query, update, false)
 
 	if err != nil {
 		fmt.Print(err)
@@ -112,10 +103,10 @@ func (uc *UserServiceImpl) StorePasswordResetToken(userEmail string, passwordRes
 	return result, nil
 }
 
-func (uc *UserServiceImpl) ResetPassword(passwordResetToken string, newPassword string) (*mongo.UpdateResult, error) {
+func (uc *UserServiceImpl) ResetPassword(passwordResetToken string, newPassword string) (*userRepo.UpdatedResult, error) {
 	query := bson.D{{Key: "passwordResetToken", Value: passwordResetToken}}
 	update := bson.D{{Key: "$set", Value: bson.D{{Key: "password", Value: passwordResetToken}}}, {Key: "$unset", Value: bson.D{{Key: "passwordResetToken", Value: ""}, {Key: "passwordResetAt", Value: ""}}}}
-	result, err := uc.collection.UpdateOne(uc.ctx, query, update)
+	result, err := uc.userRepo.UpdateUser(query, update, false)
 
 	if err != nil {
 		fmt.Print(err)

@@ -2,7 +2,7 @@ package services
 
 import (
 	"github.com/AmadoJunior/Gipitty/models"
-	"go.mongodb.org/mongo-driver/mongo"
+	"github.com/AmadoJunior/Gipitty/repos/userRepo"
 )
 
 type UserService interface {
@@ -10,7 +10,7 @@ type UserService interface {
 	FindUserByEmail(string) (*models.DBResponse, error)
 	UpdateUserById(id string, field string, value string) (*models.DBResponse, error)
 	UpdateOne(field string, value interface{}) (*models.DBResponse, error)
-	VerifyEmail(verificationCode string) (*mongo.UpdateResult, error)
-	StorePasswordResetToken(userEmail string, passwordResetToken string) (*mongo.UpdateResult, error)
-	ResetPassword(passwordResetToken string, newPassword string) (*mongo.UpdateResult, error)
+	VerifyEmail(verificationCode string) (*userRepo.UpdatedResult, error)
+	StorePasswordResetToken(userEmail string, passwordResetToken string) (*userRepo.UpdatedResult, error)
+	ResetPassword(passwordResetToken string, newPassword string) (*userRepo.UpdatedResult, error)
 }

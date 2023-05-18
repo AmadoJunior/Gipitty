@@ -5,6 +5,8 @@ import (
 
 	"github.com/AmadoJunior/Gipitty/models"
 	"github.com/AmadoJunior/Gipitty/repos"
+	"github.com/AmadoJunior/Gipitty/utils"
+	"github.com/thanhpk/randstr"
 )
 
 type UserServiceImpl struct {
@@ -32,14 +34,48 @@ func (us UserServiceImpl) UpdateUserById(id string, data *models.UpdateInput) (*
 	return us.userRepo.FindUserByID(id)
 }
 
-func (us UserServiceImpl) VerifyUserEmail(verificationCode string) error {
+func (us UserServiceImpl) VerifyUserEmail(code string) error {
+	verificationCode := utils.Encode(code)
 	return us.userRepo.VerifyUserEmail(verificationCode)
 }
 
-func (us UserServiceImpl) StorePasswordResetToken(userEmail string, passwordResetToken string) error {
-	return us.userRepo.StorePasswordResetToken(userEmail, passwordResetToken)
+func (us UserServiceImpl) StorePasswordResetToken(userEmail string) (string, error) {
+	// Generate Verification Code
+	resetToken := randstr.String(20)
+
+	passwordResetToken := utils.Encode(resetToken)
+
+	err := us.userRepo.StorePasswordResetToken(userEmail, passwordResetToken)
+
+	if err != nil {
+		return "", err
+	}
+
+	return resetToken, nil
 }
 
-func (us UserServiceImpl) ResetUserPassword(passwordResetToken string, newPassword string) error {
-	return us.userRepo.ResetUserPassword(passwordResetToken, newPassword)
+func (us UserServiceImpl) ResetUserPassword(resetToken string, newPassword string) error {
+	errChan := make(chan error)
+	outChan := make(chan string)
+	go func() {
+		defer close(errChan)
+		defer close(outChan)
+		result, err := utils.HashPassword(newPassword)
+		if err != nil {
+			errChan <- err
+		} else {
+			outChan <- result
+		}
+	}()
+
+	passwordResetToken := utils.Encode(resetToken)
+	var hashedPassword string
+	select {
+	case err := <-errChan:
+		if err != nil {
+			return err
+		}
+	case hashedPassword = <-outChan:
+	}
+	return us.userRepo.ResetUserPassword(passwordResetToken, hashedPassword)
 }

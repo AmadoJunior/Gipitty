@@ -203,9 +203,8 @@ func (ac *AuthController) LogoutUser(ctx *gin.Context) {
 func (ac *AuthController) VerifyEmail(ctx *gin.Context) {
 
 	code := ctx.Params.ByName("verificationCode")
-	verificationCode := utils.Encode(code)
 
-	err := ac.userService.VerifyUserEmail(verificationCode)
+	err := ac.userService.VerifyUserEmail(code)
 	if err != nil {
 		ctx.JSON(http.StatusForbidden, gin.H{"status": "success", "message": "could not verify email address"})
 		return
@@ -245,13 +244,8 @@ func (ac *AuthController) ForgotPassword(ctx *gin.Context) {
 		log.Fatal("Could not load config", err)
 	}
 
-	// Generate Verification Code
-	resetToken := randstr.String(20)
-
-	passwordResetToken := utils.Encode(resetToken)
-
 	// Update User in Database
-	err = ac.userService.StorePasswordResetToken(userCredential.Email, passwordResetToken)
+	resetToken, err := ac.userService.StorePasswordResetToken(userCredential.Email)
 
 	if err != nil {
 		if errors.Is(err, repos.ErrUserNotFound) {
@@ -295,16 +289,12 @@ func (ac *AuthController) ResetPassword(ctx *gin.Context) {
 		return
 	}
 
-	hashedPassword, _ := utils.HashPassword(userCredential.Password)
-
-	passwordResetToken := utils.Encode(resetToken)
-
 	// Update User in Database
-	err := ac.userService.ResetUserPassword(passwordResetToken, hashedPassword)
+	err := ac.userService.ResetUserPassword(resetToken, userCredential.Password)
 
 	if err != nil {
 		if errors.Is(err, repos.ErrUserNotFound) {
-			ctx.JSON(http.StatusBadRequest, gin.H{"status": "success", "message": "Token is invalid or has expired"})
+			ctx.JSON(http.StatusBadRequest, gin.H{"status": "success", "message": "token is invalid or has expired"})
 			return
 		}
 		if errors.Is(err, repos.ErrResetPassword) {

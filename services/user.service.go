@@ -7,6 +7,6 @@ type UserService interface {
 	FindUserByEmail(email string) (*models.DBResponse, error)
 	UpdateUserById(id string, data *models.UpdateInput) (*models.DBResponse, error)
 	VerifyUserEmail(verificationCode string) error
-	StorePasswordResetToken(userEmail string, passwordResetToken string) error
+	StorePasswordResetToken(userEmail string) (string, error)
 	ResetUserPassword(passwordResetToken string, newPassword string) error
 }

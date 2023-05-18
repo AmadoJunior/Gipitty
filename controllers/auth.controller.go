@@ -56,18 +56,25 @@ func (ac *AuthController) SignUpUser(ctx *gin.Context) {
 
 	// Generate Verification Code
 	code := randstr.String(20)
-
 	verificationCode := utils.Encode(code)
 
-	// Update User in Database
-	updateData := &models.UpdateInput{
-		VerificationCode: verificationCode,
-	}
-	_, err = ac.userService.UpdateUserById(newUser.ID.Hex(), updateData)
-	if err != nil {
-		log.Fatal("could update user by id", err)
-	}
+	//Update User Async
+	errorChan := make(chan error)
 
+	go func() {
+		defer close(errorChan)
+		// Update User in Database
+		updateData := &models.UpdateInput{
+			VerificationCode: verificationCode,
+		}
+		_, err = ac.userService.UpdateUserById(newUser.ID.Hex(), updateData)
+		if err != nil {
+			errorChan <- err
+		}
+		errorChan <- nil
+	}()
+
+	//Get firstName
 	var firstName = newUser.Name
 
 	if strings.Contains(firstName, " ") {
@@ -87,7 +94,13 @@ func (ac *AuthController) SignUpUser(ctx *gin.Context) {
 		return
 	}
 
+	err = <-errorChan
+	if err != nil {
+		log.Fatal("could not update user verification code", err)
+	}
+
 	message := "we sent an email with a verification code to " + user.Email
+
 	ctx.JSON(http.StatusCreated, gin.H{"status": "success", "message": message})
 }
 

@@ -22,11 +22,17 @@ func NewAuthServiceImpl(userRepo repos.IUserRepo, ctx context.Context) AuthServi
 
 func (uc *AuthServiceImpl) SignUpUser(user *models.SignUpInput) (*models.DBResponse, error) {
 	//Hash Password
-	hashedPassword, err := utils.HashPassword(user.Password)
-
-	if err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrSignUp, err)
-	}
+	hashedPassword := make(chan string)
+	errorChannel := make(chan error)
+	go func(password string) {
+		defer close(hashedPassword)
+		defer close(errorChannel)
+		result, err := utils.HashPassword(password)
+		if err != nil {
+			errorChannel <- err
+		}
+		hashedPassword <- result
+	}(user.Password)
 
 	//Init
 	user.CreatedAt = time.Now()
@@ -34,8 +40,15 @@ func (uc *AuthServiceImpl) SignUpUser(user *models.SignUpInput) (*models.DBRespo
 	user.Email = strings.ToLower(user.Email)
 	user.Verified = false
 	user.Role = "user"
-	user.Password = hashedPassword
 	user.PasswordConfirm = ""
+
+	select {
+	case err := <-errorChannel:
+		if err != nil {
+			return nil, fmt.Errorf("%w: %w", ErrSignUp, err)
+		}
+	case user.Password = <-hashedPassword:
+	}
 
 	//Create User
 	userId, err := uc.UserRepo.CreateNewUser(user)

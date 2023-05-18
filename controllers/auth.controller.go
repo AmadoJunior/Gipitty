@@ -2,16 +2,11 @@ package controllers
 
 import (
 	"errors"
-	"fmt"
-	"log"
 	"net/http"
-	"strings"
 
 	"github.com/AmadoJunior/Gipitty/config"
 	"github.com/AmadoJunior/Gipitty/models"
-	"github.com/AmadoJunior/Gipitty/repos"
 	"github.com/AmadoJunior/Gipitty/services"
-	"github.com/AmadoJunior/Gipitty/utils"
 	"github.com/gin-gonic/gin"
 )
 
@@ -40,11 +35,11 @@ func (ac *AuthController) SignUpUser(ctx *gin.Context) {
 	newUser, err := ac.authService.SignUpUser(user)
 
 	if err != nil {
-		if errors.Is(err, repos.ErrDuplicateEmail) {
-			ctx.JSON(http.StatusConflict, gin.H{"status": "error", "message": err.Error()})
+		if errors.Is(err, services.ErrCreatingUser) {
+			ctx.JSON(http.StatusConflict, gin.H{"status": "error", "message": "could not create your account"})
 			return
 		}
-		ctx.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": "internal server error"})
 		return
 	}
 
@@ -53,7 +48,8 @@ func (ac *AuthController) SignUpUser(ctx *gin.Context) {
 	if err != nil {
 		//Failed to Load Config
 		if errors.Is(err, services.ErrLoadingConfig) {
-			log.Fatal("could not load config", err)
+			ctx.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": "internal server error"})
+			return
 		}
 
 		//Failed to Send Email
@@ -64,7 +60,8 @@ func (ac *AuthController) SignUpUser(ctx *gin.Context) {
 
 		//Failed to Update User Verification Code
 		if errors.Is(err, services.ErrUpdateVerificationCode) {
-			log.Fatal("could not update user verification code", err)
+			ctx.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": "internal server error"})
+			return
 		}
 
 	}
@@ -82,39 +79,33 @@ func (ac *AuthController) SignInUser(ctx *gin.Context) {
 		return
 	}
 
-	user, err := ac.userService.FindUserByEmail(credentials.Email)
+	config, err := config.LoadConfig(".")
+
 	if err != nil {
-		if errors.Is(err, repos.ErrUserNotFound) {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"status": "success", "message": "internal server error"})
+		return
+	}
+
+	access_token, refresh_token, err := ac.authService.SignInUser(credentials, config)
+
+	if err != nil {
+		//User Not Found || Incorrect Password
+		if errors.Is(err, services.ErrUserNotFound) || errors.Is(err, services.ErrIncorrectPassword) {
 			ctx.JSON(http.StatusBadRequest, gin.H{"status": "fail", "message": "invalid email or password"})
 			return
 		}
-		ctx.JSON(http.StatusBadRequest, gin.H{"status": "fail", "message": err.Error()})
-		return
-	}
+		//Not Verified
+		if errors.Is(err, services.ErrUserNotVerified) {
+			ctx.JSON(http.StatusUnauthorized, gin.H{"status": "fail", "message": "you are not verified, please verify your email to login"})
+			return
+		}
 
-	if !user.Verified {
-		ctx.JSON(http.StatusUnauthorized, gin.H{"status": "fail", "message": "you are not verified, please verify your email to login"})
-		return
-	}
+		//Failed to Generate Tokens
+		if errors.Is(err, services.ErrGeneratingToken) {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"status": "success", "message": "internal server error"})
+			return
+		}
 
-	if err := utils.VerifyPassword(user.Password, credentials.Password); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"status": "fail", "message": "invalid email or password"})
-		return
-	}
-
-	config, _ := config.LoadConfig(".")
-
-	// Generate Tokens
-	access_token, err := utils.CreateToken(config.AccessTokenExpiresIn, user.ID, config.AccessTokenPrivateKey)
-	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"status": "fail", "message": err.Error()})
-		return
-	}
-
-	refresh_token, err := utils.CreateToken(config.RefreshTokenExpiresIn, user.ID, config.RefreshTokenPrivateKey)
-	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"status": "fail", "message": err.Error()})
-		return
 	}
 
 	ctx.SetCookie("access_token", access_token, config.AccessTokenMaxAge*60, "/", config.Origin, false, true)
@@ -127,31 +118,41 @@ func (ac *AuthController) SignInUser(ctx *gin.Context) {
 func (ac *AuthController) RefreshAccessToken(ctx *gin.Context) {
 	message := "could not refresh access token"
 
-	cookie, err := ctx.Cookie("refresh_token")
+	refresh_token, err := ctx.Cookie("refresh_token")
 
 	if err != nil {
 		ctx.AbortWithStatusJSON(http.StatusForbidden, gin.H{"status": "fail", "message": message})
 		return
 	}
 
-	config, _ := config.LoadConfig(".")
+	config, err := config.LoadConfig(".")
 
-	sub, err := utils.ValidateToken(cookie, config.RefreshTokenPublicKey)
 	if err != nil {
-		ctx.AbortWithStatusJSON(http.StatusForbidden, gin.H{"status": "fail", "message": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"status": "success", "message": "internal server error"})
 		return
 	}
 
-	user, err := ac.userService.FindUserById(fmt.Sprint(sub))
-	if err != nil {
-		ctx.AbortWithStatusJSON(http.StatusForbidden, gin.H{"status": "fail", "message": "the user belonging to this token no logger exists"})
-		return
-	}
+	access_token, err := ac.authService.RefreshAccessToken(refresh_token, config)
 
-	access_token, err := utils.CreateToken(config.AccessTokenExpiresIn, user.ID, config.AccessTokenPrivateKey)
 	if err != nil {
-		ctx.AbortWithStatusJSON(http.StatusForbidden, gin.H{"status": "fail", "message": err.Error()})
-		return
+		//Invalid Token
+		if errors.Is(err, services.ErrInvalidRefreshToken) {
+			ctx.AbortWithStatusJSON(http.StatusForbidden, gin.H{"status": "fail", "message": message})
+			return
+		}
+
+		//User Not Found
+		if errors.Is(err, services.ErrUserNotFound) {
+			ctx.AbortWithStatusJSON(http.StatusForbidden, gin.H{"status": "fail", "message": "the user belonging to this token no logger exists"})
+			return
+		}
+
+		//Failed to Create Token
+		if errors.Is(err, services.ErrGeneratingToken) {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"status": "success", "message": "internal server error"})
+			return
+		}
+
 	}
 
 	ctx.SetCookie("access_token", access_token, config.AccessTokenMaxAge*60, "/", config.Origin, false, true)
@@ -196,11 +197,11 @@ func (ac *AuthController) ForgotPassword(ctx *gin.Context) {
 
 	user, err := ac.userService.FindUserByEmail(userCredential.Email)
 	if err != nil {
-		if errors.Is(err, repos.ErrUserNotFound) {
+		if errors.Is(err, services.ErrUserEmailNotFound) {
 			ctx.JSON(http.StatusOK, gin.H{"status": "fail", "message": message})
 			return
 		}
-		ctx.JSON(http.StatusBadGateway, gin.H{"status": "error", "message": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"status": "success", "message": "internal server error"})
 		return
 	}
 
@@ -211,37 +212,21 @@ func (ac *AuthController) ForgotPassword(ctx *gin.Context) {
 
 	config, err := config.LoadConfig(".")
 	if err != nil {
-		log.Fatal("Could not load config", err)
+		ctx.JSON(http.StatusInternalServerError, gin.H{"status": "success", "message": "internal server error"})
+		return
 	}
 
 	// Update User in Database
-	resetToken, err := ac.userService.StorePasswordResetToken(userCredential.Email)
+	err = ac.userService.InitResetPassword(user, config)
 
 	if err != nil {
-		if errors.Is(err, repos.ErrUserNotFound) {
+		//User Not Found || Error Sending Mail
+		if errors.Is(err, services.ErrUserEmailNotFound) || errors.Is(err, services.ErrSendingEmail) {
 			ctx.JSON(http.StatusBadGateway, gin.H{"status": "success", "message": "there was an error sending email"})
+			return
 		}
-		ctx.JSON(http.StatusForbidden, gin.H{"status": "success", "message": err.Error()})
-		return
-	}
-	var firstName = user.Name
-
-	if strings.Contains(firstName, " ") {
-		firstName = strings.Split(firstName, " ")[1]
 	}
 
-	// Send Email
-	emailData := utils.EmailData{
-		URL:       config.Origin + "/resetpassword/" + resetToken,
-		FirstName: firstName,
-		Subject:   "Your password reset token (valid for 10min)",
-	}
-
-	err = utils.SendEmail(user, &emailData, "resetPassword.html")
-	if err != nil {
-		ctx.JSON(http.StatusBadGateway, gin.H{"status": "success", "message": "there was an error sending email"})
-		return
-	}
 	ctx.JSON(http.StatusOK, gin.H{"status": "success", "message": message})
 }
 
@@ -263,12 +248,12 @@ func (ac *AuthController) ResetPassword(ctx *gin.Context) {
 	err := ac.userService.ResetUserPassword(resetToken, userCredential.Password)
 
 	if err != nil {
-		if errors.Is(err, repos.ErrUserNotFound) {
+		if errors.Is(err, services.ErrResetTokenNotFound) {
 			ctx.JSON(http.StatusBadRequest, gin.H{"status": "success", "message": "token is invalid or has expired"})
 			return
 		}
-		if errors.Is(err, repos.ErrResetPassword) {
-			ctx.JSON(http.StatusForbidden, gin.H{"status": "success", "message": err.Error()})
+		if errors.Is(err, services.ErrUpdatingPassword) {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"status": "success", "message": "internal server error"})
 			return
 		}
 	}
@@ -277,5 +262,5 @@ func (ac *AuthController) ResetPassword(ctx *gin.Context) {
 	ctx.SetCookie("refresh_token", "", -1, "/", "localhost", false, true)
 	ctx.SetCookie("logged_in", "", -1, "/", "localhost", false, true)
 
-	ctx.JSON(http.StatusOK, gin.H{"status": "success", "message": "Password data updated successfully"})
+	ctx.JSON(http.StatusOK, gin.H{"status": "success", "message": "password data updated successfully"})
 }

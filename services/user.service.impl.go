@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -22,19 +23,27 @@ func NewUserServiceImpl(userRepo repos.IUserRepo, ctx context.Context) UserServi
 }
 
 func (us UserServiceImpl) FindUserById(id string) (*models.DBResponse, error) {
-	return us.userRepo.FindUserByID(id)
+	user, err := us.userRepo.FindUserByID(id)
+	if err != nil {
+		return nil, fmt.Errorf("%w:%w", ErrUserIDNotFound, err)
+	}
+	return user, nil
 }
 
 func (us UserServiceImpl) FindUserByEmail(email string) (*models.DBResponse, error) {
-	return us.userRepo.FindUserByEmail(email)
+	user, err := us.userRepo.FindUserByEmail(email)
+	if err != nil {
+		return nil, fmt.Errorf("%w:%w", ErrUserEmailNotFound, err)
+	}
+	return user, nil
 }
 
 func (us UserServiceImpl) UpdateUserById(id string, data *models.UpdateInput) (*models.DBResponse, error) {
-	err := us.userRepo.UpdateUserById(id, data)
+	user, err := us.userRepo.FindAndUpdateUserByID(id, data)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w:%w", ErrUserIDNotFound, err)
 	}
-	return us.userRepo.FindUserByID(id)
+	return user, nil
 }
 
 func (us UserServiceImpl) SendVerificationEmail(newUser *models.DBResponse) error {
@@ -98,19 +107,39 @@ func (us UserServiceImpl) VerifyUserEmail(code string) error {
 	return us.userRepo.VerifyUserEmail(verificationCode)
 }
 
-func (us UserServiceImpl) StorePasswordResetToken(userEmail string) (string, error) {
+func (us UserServiceImpl) InitResetPassword(user *models.DBResponse, config config.Config) error {
 	// Generate Verification Code
 	resetToken := randstr.String(20)
 
 	passwordResetToken := utils.Encode(resetToken)
 
-	err := us.userRepo.StorePasswordResetToken(userEmail, passwordResetToken)
+	err := us.userRepo.StorePasswordResetToken(user.Email, passwordResetToken)
 
 	if err != nil {
-		return "", err
+		//Error Storing Reset Token
+		return fmt.Errorf("%w:%w", ErrUserEmailNotFound, err)
 	}
 
-	return resetToken, nil
+	var firstName = user.Name
+
+	if strings.Contains(firstName, " ") {
+		firstName = strings.Split(firstName, " ")[1]
+	}
+
+	// Send Email
+	emailData := utils.EmailData{
+		URL:       config.Origin + "/resetpassword/" + resetToken,
+		FirstName: firstName,
+		Subject:   "Your password reset token (valid for 10min)",
+	}
+
+	err = utils.SendEmail(user, &emailData, "resetPassword.html")
+	if err != nil {
+		//Error Sending Mail
+		return fmt.Errorf("%w:%w", ErrSendingEmail, err)
+	}
+
+	return nil
 }
 
 func (us UserServiceImpl) ResetUserPassword(resetToken string, newPassword string) error {
@@ -136,5 +165,17 @@ func (us UserServiceImpl) ResetUserPassword(resetToken string, newPassword strin
 		}
 	case hashedPassword = <-outChan:
 	}
-	return us.userRepo.ResetUserPassword(passwordResetToken, hashedPassword)
+
+	err := us.userRepo.ResetUserPassword(passwordResetToken, hashedPassword)
+
+	if err != nil {
+		if errors.Is(err, repos.ErrUserNotFound) {
+			return fmt.Errorf("%w: %w", ErrResetTokenNotFound, err)
+		}
+		if errors.Is(err, repos.ErrResetPassword) {
+			return fmt.Errorf("%w: %w", ErrUpdatingPassword, err)
+		}
+	}
+
+	return nil
 }

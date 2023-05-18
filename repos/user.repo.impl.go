@@ -105,6 +105,30 @@ func (ur UserRepoImpl) FindUserByEmail(email string) (*models.DBResponse, error)
 	return user, nil
 }
 
+func (ur UserRepoImpl) FindAndUpdateUserByID(id string, data *models.UpdateInput) (*models.DBResponse, error) {
+	doc, err := utils.ToDoc(data)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrInvalidUpdateInput, err)
+	}
+
+	// Convert String to ObjectID
+	objectID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrInvalidIDHex, err)
+	}
+
+	query := bson.D{{Key: "_id", Value: objectID}}
+	update := bson.D{{Key: "$set", Value: doc}}
+	result := ur.store.FindOneAndUpdate(ur.ctx, query, update, options.FindOneAndUpdate().SetReturnDocument(1))
+
+	var updatedUser *models.DBResponse
+	if err := result.Decode(&updatedUser); err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrUserNotFound, err)
+	}
+
+	return updatedUser, nil
+}
+
 func (ur UserRepoImpl) UpdateUserById(id string, update *models.UpdateInput) error {
 	// Convert String to ObjectID
 	objectID, err := primitive.ObjectIDFromHex(id)

@@ -17,6 +17,7 @@ type IUserRepo interface {
 	CreateNewUser(*models.SignUpInput) (string, error)
 	FindUserByID(id string) (*models.DBResponse, error)
 	FindUserByEmail(email string) (*models.DBResponse, error)
+	FindAndUpdateUserByID(id string, data *models.UpdateInput) (*models.DBResponse, error)
 	UpdateUserById(id string, update *models.UpdateInput) error
 	UpdateUserByEmail(email string, update *models.UpdateInput) error
 	VerifyUserEmail(verificationCode string) error

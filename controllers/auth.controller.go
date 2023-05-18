@@ -13,7 +13,6 @@ import (
 	"github.com/AmadoJunior/Gipitty/services"
 	"github.com/AmadoJunior/Gipitty/utils"
 	"github.com/gin-gonic/gin"
-	"github.com/thanhpk/randstr"
 )
 
 type AuthController struct {
@@ -49,54 +48,25 @@ func (ac *AuthController) SignUpUser(ctx *gin.Context) {
 		return
 	}
 
-	config, err := config.LoadConfig(".")
+	err = ac.userService.SendVerificationEmail(newUser)
+
 	if err != nil {
-		log.Fatal("could not load config", err)
-	}
-
-	// Generate Verification Code
-	code := randstr.String(20)
-	verificationCode := utils.Encode(code)
-
-	//Update User Async
-	errorChan := make(chan error)
-
-	go func() {
-		defer close(errorChan)
-		// Update User in Database
-		updateData := &models.UpdateInput{
-			VerificationCode: verificationCode,
+		//Failed to Load Config
+		if errors.Is(err, services.ErrLoadingConfig) {
+			log.Fatal("could not load config", err)
 		}
-		_, err = ac.userService.UpdateUserById(newUser.ID.Hex(), updateData)
-		if err != nil {
-			errorChan <- err
+
+		//Failed to Send Email
+		if errors.Is(err, services.ErrSendingEmail) {
+			ctx.JSON(http.StatusBadGateway, gin.H{"status": "success", "message": "there was an error sending email"})
+			return
 		}
-		errorChan <- nil
-	}()
 
-	//Get firstName
-	var firstName = newUser.Name
+		//Failed to Update User Verification Code
+		if errors.Is(err, services.ErrUpdateVerificationCode) {
+			log.Fatal("could not update user verification code", err)
+		}
 
-	if strings.Contains(firstName, " ") {
-		firstName = strings.Split(firstName, " ")[1]
-	}
-
-	// Send Email
-	emailData := utils.EmailData{
-		URL:       config.Origin + "/verifyemail/" + code,
-		FirstName: firstName,
-		Subject:   "Your account verification code",
-	}
-
-	err = utils.SendEmail(newUser, &emailData, "verificationCode.html")
-	if err != nil {
-		ctx.JSON(http.StatusBadGateway, gin.H{"status": "success", "message": "there was an error sending email"})
-		return
-	}
-
-	err = <-errorChan
-	if err != nil {
-		log.Fatal("could not update user verification code", err)
 	}
 
 	message := "we sent an email with a verification code to " + user.Email

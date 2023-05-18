@@ -2,7 +2,10 @@ package services
 
 import (
 	"context"
+	"fmt"
+	"strings"
 
+	"github.com/AmadoJunior/Gipitty/config"
 	"github.com/AmadoJunior/Gipitty/models"
 	"github.com/AmadoJunior/Gipitty/repos"
 	"github.com/AmadoJunior/Gipitty/utils"
@@ -32,6 +35,62 @@ func (us UserServiceImpl) UpdateUserById(id string, data *models.UpdateInput) (*
 		return nil, err
 	}
 	return us.userRepo.FindUserByID(id)
+}
+
+func (us UserServiceImpl) SendVerificationEmail(newUser *models.DBResponse) error {
+	config, err := config.LoadConfig(".")
+	if err != nil {
+		//Error Loading Config
+		return fmt.Errorf("%w: %w", ErrLoadingConfig, err)
+	}
+
+	// Generate Verification Code
+	code := randstr.String(20)
+	verificationCode := utils.Encode(code)
+
+	//Update User Async
+	errorChan := make(chan error)
+
+	go func() {
+		defer close(errorChan)
+		// Update User in Database
+		updateData := &models.UpdateInput{
+			VerificationCode: verificationCode,
+		}
+		_, err = us.UpdateUserById(newUser.ID.Hex(), updateData)
+		if err != nil {
+			errorChan <- err
+		}
+		errorChan <- nil
+	}()
+
+	//Get firstName
+	var firstName = newUser.Name
+
+	if strings.Contains(firstName, " ") {
+		firstName = strings.Split(firstName, " ")[1]
+	}
+
+	// Send Email
+	emailData := utils.EmailData{
+		URL:       config.Origin + "/verifyemail/" + code,
+		FirstName: firstName,
+		Subject:   "Your account verification code",
+	}
+
+	err = utils.SendEmail(newUser, &emailData, "verificationCode.html")
+	if err != nil {
+		//Error Sending Mail
+		return fmt.Errorf("%w: %w", ErrSendingEmail, err)
+	}
+
+	err = <-errorChan
+	if err != nil {
+		//Error Setting Verification Code
+		return fmt.Errorf("%w: %w", ErrUpdateVerificationCode, err)
+	}
+
+	return nil
 }
 
 func (us UserServiceImpl) VerifyUserEmail(code string) error {

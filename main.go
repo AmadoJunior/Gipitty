@@ -12,6 +12,7 @@ import (
 	"github.com/AmadoJunior/Gipitty/routes"
 	"github.com/AmadoJunior/Gipitty/services"
 	"github.com/gin-contrib/cors"
+	"github.com/gin-gonic/contrib/static"
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
 )
@@ -113,6 +114,10 @@ func main() {
 	corsConfig.AllowCredentials = true
 	server.Use(cors.New(corsConfig))
 
+	//Static
+	server.Use(static.Serve("/", static.LocalFile("./public", true)))
+
+	//API
 	router := server.Group("/api")
 	router.GET("/healthChecker", func(ctx *gin.Context) {
 		ctx.JSON(http.StatusOK, gin.H{"status": "success", "message": value})

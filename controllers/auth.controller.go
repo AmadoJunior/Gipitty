@@ -7,6 +7,7 @@ import (
 	"github.com/AmadoJunior/Gipitty/config"
 	"github.com/AmadoJunior/Gipitty/models"
 	"github.com/AmadoJunior/Gipitty/services"
+	"github.com/AmadoJunior/Gipitty/utils"
 	"github.com/gin-gonic/gin"
 )
 
@@ -35,6 +36,7 @@ func (ac *AuthController) SignUpUser(ctx *gin.Context) {
 	newUser, err := ac.authService.SignUpUser(user)
 
 	if err != nil {
+		go utils.LogError(err, ctx)
 		if errors.Is(err, services.ErrCreatingUser) {
 			ctx.JSON(http.StatusConflict, gin.H{"status": "error", "message": "could not create your account"})
 			return
@@ -46,6 +48,7 @@ func (ac *AuthController) SignUpUser(ctx *gin.Context) {
 	err = ac.userService.SendVerificationEmail(newUser)
 
 	if err != nil {
+		go utils.LogError(err, ctx)
 		//Failed to Load Config
 		if errors.Is(err, services.ErrLoadingConfig) {
 			ctx.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": "internal server error"})
@@ -82,6 +85,7 @@ func (ac *AuthController) SignInUser(ctx *gin.Context) {
 	config, err := config.LoadConfig(".")
 
 	if err != nil {
+		go utils.LogError(err, ctx)
 		ctx.JSON(http.StatusInternalServerError, gin.H{"status": "success", "message": "internal server error"})
 		return
 	}
@@ -89,6 +93,7 @@ func (ac *AuthController) SignInUser(ctx *gin.Context) {
 	access_token, refresh_token, err := ac.authService.SignInUser(credentials, config)
 
 	if err != nil {
+		go utils.LogError(err, ctx)
 		//User Not Found || Incorrect Password
 		if errors.Is(err, services.ErrUserNotFound) || errors.Is(err, services.ErrIncorrectPassword) {
 			ctx.JSON(http.StatusBadRequest, gin.H{"status": "fail", "message": "invalid email or password"})
@@ -121,6 +126,7 @@ func (ac *AuthController) RefreshAccessToken(ctx *gin.Context) {
 	refresh_token, err := ctx.Cookie("refresh_token")
 
 	if err != nil {
+		go utils.LogError(err, ctx)
 		ctx.AbortWithStatusJSON(http.StatusForbidden, gin.H{"status": "fail", "message": message})
 		return
 	}
@@ -128,6 +134,7 @@ func (ac *AuthController) RefreshAccessToken(ctx *gin.Context) {
 	config, err := config.LoadConfig(".")
 
 	if err != nil {
+		go utils.LogError(err, ctx)
 		ctx.JSON(http.StatusInternalServerError, gin.H{"status": "success", "message": "internal server error"})
 		return
 	}
@@ -135,6 +142,7 @@ func (ac *AuthController) RefreshAccessToken(ctx *gin.Context) {
 	access_token, err := ac.authService.RefreshAccessToken(refresh_token, config)
 
 	if err != nil {
+		go utils.LogError(err, ctx)
 		//Invalid Token
 		if errors.Is(err, services.ErrInvalidRefreshToken) {
 			ctx.AbortWithStatusJSON(http.StatusForbidden, gin.H{"status": "fail", "message": message})
@@ -177,6 +185,7 @@ func (ac *AuthController) VerifyEmail(ctx *gin.Context) {
 
 	err := ac.userService.VerifyUserEmail(code)
 	if err != nil {
+		go utils.LogError(err, ctx)
 		ctx.JSON(http.StatusForbidden, gin.H{"status": "success", "message": "could not verify email address"})
 		return
 	}
@@ -197,6 +206,7 @@ func (ac *AuthController) ForgotPassword(ctx *gin.Context) {
 
 	user, err := ac.userService.FindUserByEmail(userCredential.Email)
 	if err != nil {
+		go utils.LogError(err, ctx)
 		if errors.Is(err, services.ErrUserEmailNotFound) {
 			ctx.JSON(http.StatusOK, gin.H{"status": "fail", "message": message})
 			return
@@ -212,6 +222,7 @@ func (ac *AuthController) ForgotPassword(ctx *gin.Context) {
 
 	config, err := config.LoadConfig(".")
 	if err != nil {
+		go utils.LogError(err, ctx)
 		ctx.JSON(http.StatusInternalServerError, gin.H{"status": "success", "message": "internal server error"})
 		return
 	}
@@ -220,6 +231,7 @@ func (ac *AuthController) ForgotPassword(ctx *gin.Context) {
 	err = ac.userService.InitResetPassword(user, config)
 
 	if err != nil {
+		go utils.LogError(err, ctx)
 		//User Not Found || Error Sending Mail
 		if errors.Is(err, services.ErrUserEmailNotFound) || errors.Is(err, services.ErrSendingEmail) {
 			ctx.JSON(http.StatusBadGateway, gin.H{"status": "success", "message": "there was an error sending email"})
@@ -248,6 +260,7 @@ func (ac *AuthController) ResetPassword(ctx *gin.Context) {
 	err := ac.userService.ResetUserPassword(resetToken, userCredential.Password)
 
 	if err != nil {
+		go utils.LogError(err, ctx)
 		if errors.Is(err, services.ErrResetTokenNotFound) {
 			ctx.JSON(http.StatusBadRequest, gin.H{"status": "success", "message": "token is invalid or has expired"})
 			return

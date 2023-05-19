@@ -46,7 +46,7 @@ func (uc *AuthServiceImpl) SignUpUser(user *models.SignUpInput) (*models.DBRespo
 	select {
 	case err := <-errorChannel:
 		if err != nil {
-			return nil, fmt.Errorf("%w: %w", ErrHashingPassword, err)
+			return nil, utils.GenerateError(ErrHashingPassword, err)
 		}
 	case user.Password = <-hashedPassword:
 	}
@@ -54,68 +54,68 @@ func (uc *AuthServiceImpl) SignUpUser(user *models.SignUpInput) (*models.DBRespo
 	//Create User
 	userId, err := uc.UserRepo.CreateNewUser(user)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrCreatingUser, err)
+		return nil, utils.GenerateError(ErrCreatingUser, err)
 	}
 
 	var newUser *models.DBResponse
 	newUser, err = uc.UserRepo.FindUserByID(userId)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrUserIDNotFound, err)
+		return nil, utils.GenerateError(ErrUserIDNotFound, err)
 	}
 
 	return newUser, nil
 }
 
-func (uc *AuthServiceImpl) SignInUser(credentials *models.SignInInput, config config.Config) (string, string, error) {
+func (uc *AuthServiceImpl) SignInUser(credentials *models.SignInInput, config *config.Config) (string, string, error) {
 	user, err := uc.UserRepo.FindUserByEmail(credentials.Email)
 	if err != nil {
 		//User Not Found
-		return "", "", fmt.Errorf("%w: %w", ErrUserNotFound, err)
+		return "", "", utils.GenerateError(ErrUserNotFound, err)
 	}
 
 	if !user.Verified {
 		//Not Verified
-		return "", "", fmt.Errorf("%w: %w", ErrUserNotVerified, err)
+		return "", "", utils.GenerateError(ErrUserNotVerified, err)
 	}
 
 	if err := utils.VerifyPassword(user.Password, credentials.Password); err != nil {
 		//Incorrect Password
-		return "", "", fmt.Errorf("%w: %w", ErrIncorrectPassword, err)
+		return "", "", utils.GenerateError(ErrIncorrectPassword, err)
 	}
 
 	// Generate Tokens
 	access_token, err := utils.CreateToken(config.AccessTokenExpiresIn, user.ID, config.AccessTokenPrivateKey)
 	if err != nil {
 		//Failed to Generate Tokens
-		return "", "", fmt.Errorf("%w: %w", ErrGeneratingToken, err)
+		return "", "", utils.GenerateError(ErrGeneratingToken, err)
 	}
 
 	refresh_token, err := utils.CreateToken(config.RefreshTokenExpiresIn, user.ID, config.RefreshTokenPrivateKey)
 	if err != nil {
 		//Failed to Generate Tokens
-		return "", "", fmt.Errorf("%w: %w", ErrGeneratingToken, err)
+		return "", "", utils.GenerateError(ErrGeneratingToken, err)
 	}
 
 	return access_token, refresh_token, nil
 }
 
-func (uc AuthServiceImpl) RefreshAccessToken(refresh_token string, config config.Config) (string, error) {
+func (uc AuthServiceImpl) RefreshAccessToken(refresh_token string, config *config.Config) (string, error) {
 	sub, err := utils.ValidateToken(refresh_token, config.RefreshTokenPublicKey)
 	if err != nil {
 		//Invalid Token
-		return "", fmt.Errorf("%w:%w", ErrInvalidRefreshToken, err)
+		return "", utils.GenerateError(ErrInvalidRefreshToken, err)
 	}
 
 	user, err := uc.UserRepo.FindUserByID(fmt.Sprint(sub))
 	if err != nil {
 		//User Not Found
-		return "", fmt.Errorf("%w:%w", ErrUserNotFound, err)
+		return "", utils.GenerateError(ErrUserNotFound, err)
 	}
 
 	access_token, err := utils.CreateToken(config.AccessTokenExpiresIn, user.ID, config.AccessTokenPrivateKey)
 	if err != nil {
 		//Failed to Create Token
-		return "", fmt.Errorf("%w:%w", ErrGeneratingToken, err)
+		return "", utils.GenerateError(ErrGeneratingToken, err)
 	}
 
 	return access_token, nil

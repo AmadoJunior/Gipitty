@@ -2,7 +2,6 @@ package repos
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"time"
 
@@ -41,7 +40,7 @@ func (ur *UserRepoImpl) connect(dbUri string) error {
 func (ur *UserRepoImpl) InitRepository(dbUri string, dbName string, repoName string) error {
 	err := ur.connect(dbUri)
 	if err != nil {
-		return fmt.Errorf("%w: %w", ErrUserRepoInit, err)
+		return utils.GenerateError(ErrUserRepoInit, err)
 	}
 	ur.store = *ur.client.Database(dbName).Collection(repoName)
 	return nil
@@ -50,7 +49,7 @@ func (ur *UserRepoImpl) InitRepository(dbUri string, dbName string, repoName str
 func (ur UserRepoImpl) DeinitRepository() error {
 	err := ur.client.Disconnect(ur.ctx)
 	if err != nil {
-		return fmt.Errorf("%w: %w", ErrUserRepoDeinit, err)
+		return utils.GenerateError(ErrUserRepoDeinit, err)
 	}
 	return nil
 }
@@ -61,9 +60,10 @@ func (ur UserRepoImpl) CreateNewUser(user *models.SignUpInput) (string, error) {
 	//Catch Errs
 	if err != nil {
 		if mongo.IsDuplicateKeyError(err) {
-			return "", fmt.Errorf("%w: %w", ErrDuplicateEmail, err)
+			//return "", utils.GenerateError(ErrDuplicateEmail, err)
+			return "", utils.GenerateError(ErrDuplicateEmail, err)
 		}
-		return "", fmt.Errorf("%w: %w", ErrUserInsertion, err)
+		return "", utils.GenerateError(ErrUserInsertion, err)
 	}
 
 	// Assert InsertedID to ObjectID
@@ -79,7 +79,7 @@ func (ur UserRepoImpl) FindUserByID(id string) (*models.DBResponse, error) {
 	objID, err := primitive.ObjectIDFromHex(id)
 
 	if err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrInvalidIDHex, err)
+		return nil, utils.GenerateError(ErrInvalidIDHex, err)
 	}
 
 	user := &models.DBResponse{}
@@ -87,7 +87,7 @@ func (ur UserRepoImpl) FindUserByID(id string) (*models.DBResponse, error) {
 	err = ur.store.FindOne(ur.ctx, filter).Decode(user)
 
 	if err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrUserNotFound, err)
+		return nil, utils.GenerateError(ErrUserNotFound, err)
 	}
 
 	return user, nil
@@ -99,7 +99,7 @@ func (ur UserRepoImpl) FindUserByEmail(email string) (*models.DBResponse, error)
 	err := ur.store.FindOne(ur.ctx, filter).Decode(user)
 
 	if err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrUserNotFound, err)
+		return nil, utils.GenerateError(ErrUserNotFound, err)
 	}
 
 	return user, nil
@@ -108,13 +108,13 @@ func (ur UserRepoImpl) FindUserByEmail(email string) (*models.DBResponse, error)
 func (ur UserRepoImpl) FindAndUpdateUserByID(id string, data *models.UpdateInput) (*models.DBResponse, error) {
 	doc, err := utils.ToDoc(data)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrInvalidUpdateInput, err)
+		return nil, utils.GenerateError(ErrInvalidUpdateInput, err)
 	}
 
 	// Convert String to ObjectID
 	objectID, err := primitive.ObjectIDFromHex(id)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrInvalidIDHex, err)
+		return nil, utils.GenerateError(ErrInvalidIDHex, err)
 	}
 
 	query := bson.D{{Key: "_id", Value: objectID}}
@@ -123,7 +123,7 @@ func (ur UserRepoImpl) FindAndUpdateUserByID(id string, data *models.UpdateInput
 
 	var updatedUser *models.DBResponse
 	if err := result.Decode(&updatedUser); err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrUserNotFound, err)
+		return nil, utils.GenerateError(ErrUserNotFound, err)
 	}
 
 	return updatedUser, nil
@@ -134,12 +134,12 @@ func (ur UserRepoImpl) UpdateUserById(id string, update *models.UpdateInput) err
 	objectID, err := primitive.ObjectIDFromHex(id)
 
 	if err != nil {
-		return fmt.Errorf("%w: %w", ErrInvalidIDHex, err)
+		return utils.GenerateError(ErrInvalidIDHex, err)
 	}
 
 	doc, err := utils.ToDoc(update)
 	if err != nil {
-		return fmt.Errorf("%w: %w", ErrInvalidUpdateInput, err)
+		return utils.GenerateError(ErrInvalidUpdateInput, err)
 	}
 
 	filter := bson.M{"_id": objectID}
@@ -147,11 +147,11 @@ func (ur UserRepoImpl) UpdateUserById(id string, update *models.UpdateInput) err
 	res, err := ur.store.UpdateOne(ur.ctx, filter, updatePrimitive)
 
 	if err != nil {
-		return fmt.Errorf("%w: %w", ErrUserUpdate, err)
+		return utils.GenerateError(ErrUserUpdate, err)
 	}
 
 	if res.MatchedCount < 1 {
-		return fmt.Errorf("%w: %w", ErrUserNotFound, err)
+		return utils.GenerateError(ErrUserNotFound, err)
 	}
 
 	return nil
@@ -160,7 +160,7 @@ func (ur UserRepoImpl) UpdateUserById(id string, update *models.UpdateInput) err
 func (ur UserRepoImpl) UpdateUserByEmail(email string, update *models.UpdateInput) error {
 	doc, err := utils.ToDoc(update)
 	if err != nil {
-		return fmt.Errorf("%w: %w", ErrInvalidUpdateInput, err)
+		return utils.GenerateError(ErrInvalidUpdateInput, err)
 	}
 
 	filter := bson.M{"email": email}
@@ -168,11 +168,11 @@ func (ur UserRepoImpl) UpdateUserByEmail(email string, update *models.UpdateInpu
 	res, err := ur.store.UpdateOne(ur.ctx, filter, updatePrimitive)
 
 	if err != nil {
-		return fmt.Errorf("%w: %w", ErrUserUpdate, err)
+		return utils.GenerateError(ErrUserUpdate, err)
 	}
 
 	if res.MatchedCount < 1 {
-		return fmt.Errorf("%w: %w", ErrUserNotFound, err)
+		return utils.GenerateError(ErrUserNotFound, err)
 	}
 
 	return nil
@@ -185,11 +185,11 @@ func (ur UserRepoImpl) VerifyUserEmail(verificationCode string) error {
 	res, err := ur.store.UpdateOne(ur.ctx, query, update)
 
 	if err != nil {
-		return fmt.Errorf("%w: %w", ErrUserVerification, err)
+		return utils.GenerateError(ErrUserVerification, err)
 	}
 
 	if res.MatchedCount < 1 {
-		return fmt.Errorf("%w: %w", ErrUserNotFound, err)
+		return utils.GenerateError(ErrUserNotFound, err)
 	}
 
 	return nil
@@ -201,11 +201,11 @@ func (ur UserRepoImpl) StorePasswordResetToken(userEmail string, passwordResetTo
 	res, err := ur.store.UpdateOne(ur.ctx, query, update)
 
 	if err != nil {
-		return fmt.Errorf("%w: %w", ErrStorePasswordResetToken, err)
+		return utils.GenerateError(ErrStorePasswordResetToken, err)
 	}
 
 	if res.MatchedCount < 1 {
-		return fmt.Errorf("%w: %w", ErrUserNotFound, err)
+		return utils.GenerateError(ErrUserNotFound, err)
 	}
 
 	return nil
@@ -217,11 +217,11 @@ func (ur UserRepoImpl) ResetUserPassword(passwordResetToken string, newPassword 
 	res, err := ur.store.UpdateOne(ur.ctx, query, update)
 
 	if err != nil {
-		return fmt.Errorf("%w: %w", ErrResetPassword, err)
+		return utils.GenerateError(ErrResetPassword, err)
 	}
 
 	if res.MatchedCount < 1 {
-		return fmt.Errorf("%w: %w", ErrUserNotFound, err)
+		return utils.GenerateError(ErrUserNotFound, err)
 	}
 
 	return nil

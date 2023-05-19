@@ -11,6 +11,6 @@ type UserService interface {
 	UpdateUserById(id string, data *models.UpdateInput) (*models.DBResponse, error)
 	SendVerificationEmail(newUser *models.DBResponse) error
 	VerifyUserEmail(verificationCode string) error
-	InitResetPassword(*models.DBResponse, config.Config) error
+	InitResetPassword(*models.DBResponse, *config.Config) error
 	ResetUserPassword(passwordResetToken string, newPassword string) error
 }

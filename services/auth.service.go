@@ -7,6 +7,6 @@ import (
 
 type AuthService interface {
 	SignUpUser(*models.SignUpInput) (*models.DBResponse, error)
-	SignInUser(*models.SignInInput, config.Config) (string, string, error)
-	RefreshAccessToken(string, config.Config) (string, error)
+	SignInUser(*models.SignInInput, *config.Config) (string, string, error)
+	RefreshAccessToken(string, *config.Config) (string, error)
 }

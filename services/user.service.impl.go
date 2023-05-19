@@ -3,7 +3,6 @@ package services
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strings"
 
 	"github.com/AmadoJunior/Gipitty/config"
@@ -25,7 +24,7 @@ func NewUserServiceImpl(userRepo repos.IUserRepo, ctx context.Context) UserServi
 func (us UserServiceImpl) FindUserById(id string) (*models.DBResponse, error) {
 	user, err := us.userRepo.FindUserByID(id)
 	if err != nil {
-		return nil, fmt.Errorf("%w:%w", ErrUserIDNotFound, err)
+		return nil, utils.GenerateError(ErrUserIDNotFound, err)
 	}
 	return user, nil
 }
@@ -33,7 +32,7 @@ func (us UserServiceImpl) FindUserById(id string) (*models.DBResponse, error) {
 func (us UserServiceImpl) FindUserByEmail(email string) (*models.DBResponse, error) {
 	user, err := us.userRepo.FindUserByEmail(email)
 	if err != nil {
-		return nil, fmt.Errorf("%w:%w", ErrUserEmailNotFound, err)
+		return nil, utils.GenerateError(ErrUserEmailNotFound, err)
 	}
 	return user, nil
 }
@@ -41,7 +40,7 @@ func (us UserServiceImpl) FindUserByEmail(email string) (*models.DBResponse, err
 func (us UserServiceImpl) UpdateUserById(id string, data *models.UpdateInput) (*models.DBResponse, error) {
 	user, err := us.userRepo.FindAndUpdateUserByID(id, data)
 	if err != nil {
-		return nil, fmt.Errorf("%w:%w", ErrUserIDNotFound, err)
+		return nil, utils.GenerateError(ErrUserIDNotFound, err)
 	}
 	return user, nil
 }
@@ -50,7 +49,7 @@ func (us UserServiceImpl) SendVerificationEmail(newUser *models.DBResponse) erro
 	config, err := config.LoadConfig(".")
 	if err != nil {
 		//Error Loading Config
-		return fmt.Errorf("%w: %w", ErrLoadingConfig, err)
+		return utils.GenerateError(ErrLoadingConfig, err)
 	}
 
 	// Generate Verification Code
@@ -90,13 +89,13 @@ func (us UserServiceImpl) SendVerificationEmail(newUser *models.DBResponse) erro
 	err = utils.SendEmail(newUser, &emailData, "verificationCode.html")
 	if err != nil {
 		//Error Sending Mail
-		return fmt.Errorf("%w: %w", ErrSendingEmail, err)
+		return utils.GenerateError(ErrSendingEmail, err)
 	}
 
 	err = <-errorChan
 	if err != nil {
 		//Error Setting Verification Code
-		return fmt.Errorf("%w: %w", ErrUpdateVerificationCode, err)
+		return utils.GenerateError(ErrUpdateVerificationCode, err)
 	}
 
 	return nil
@@ -107,7 +106,7 @@ func (us UserServiceImpl) VerifyUserEmail(code string) error {
 	return us.userRepo.VerifyUserEmail(verificationCode)
 }
 
-func (us UserServiceImpl) InitResetPassword(user *models.DBResponse, config config.Config) error {
+func (us UserServiceImpl) InitResetPassword(user *models.DBResponse, config *config.Config) error {
 	// Generate Verification Code
 	resetToken := randstr.String(20)
 
@@ -117,7 +116,7 @@ func (us UserServiceImpl) InitResetPassword(user *models.DBResponse, config conf
 
 	if err != nil {
 		//Error Storing Reset Token
-		return fmt.Errorf("%w:%w", ErrUserEmailNotFound, err)
+		return utils.GenerateError(ErrUserEmailNotFound, err)
 	}
 
 	var firstName = user.Name
@@ -136,7 +135,7 @@ func (us UserServiceImpl) InitResetPassword(user *models.DBResponse, config conf
 	err = utils.SendEmail(user, &emailData, "resetPassword.html")
 	if err != nil {
 		//Error Sending Mail
-		return fmt.Errorf("%w:%w", ErrSendingEmail, err)
+		return utils.GenerateError(ErrSendingEmail, err)
 	}
 
 	return nil
@@ -170,10 +169,10 @@ func (us UserServiceImpl) ResetUserPassword(resetToken string, newPassword strin
 
 	if err != nil {
 		if errors.Is(err, repos.ErrUserNotFound) {
-			return fmt.Errorf("%w: %w", ErrResetTokenNotFound, err)
+			return utils.GenerateError(ErrResetTokenNotFound, err)
 		}
 		if errors.Is(err, repos.ErrResetPassword) {
-			return fmt.Errorf("%w: %w", ErrUpdatingPassword, err)
+			return utils.GenerateError(ErrUpdatingPassword, err)
 		}
 	}
 

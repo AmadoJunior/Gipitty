@@ -1,0 +1,22 @@
+ERROR: 2023/05/18 20:35:23 logger.go:30: Error:
+failed to create user:
+	at controllers.(*AuthController).SignUpUser (/home/amado/Documents/Gipitty/controllers/auth.controller.go:36)
+user email already in use:
+	at services.(*AuthServiceImpl).SignUpUser (/home/amado/Documents/Gipitty/services/auth.service.impl.go:55)
+write exception: write errors: [E11000 duplicate key error collection: Gipitty.users index: email_1 dup key: { email: "amado.dominguez001@protonmail.com" }]
+ERROR: 2023/05/18 20:35:23 logger.go:31: Method: POST
+ERROR: 2023/05/18 20:35:23 logger.go:32: URI: /api/auth/register
+ERROR: 2023/05/18 20:35:23 logger.go:33: User Agent: PostmanRuntime/7.28.4
+ERROR: 2023/05/18 20:35:23 logger.go:34: IP: ::1
+ERROR: 2023/05/18 20:35:23 logger.go:35: Status: 409
+ERROR: 2023/05/18 21:00:35 logger.go:30: Error:
+failed to create user:
+	at controllers.(*AuthController).SignUpUser (/home/amado/Documents/Gipitty/controllers/auth.controller.go:36)
+user email already in use:
+	at services.(*AuthServiceImpl).SignUpUser (/home/amado/Documents/Gipitty/services/auth.service.impl.go:55)
+write exception: write errors: [E11000 duplicate key error collection: Gipitty.users index: email_1 dup key: { email: "amado.dominguez001@protonmail.com" }]
+ERROR: 2023/05/18 21:00:35 logger.go:31: Method: POST
+ERROR: 2023/05/18 21:00:35 logger.go:32: URI: /api/auth/register
+ERROR: 2023/05/18 21:00:35 logger.go:33: User Agent: PostmanRuntime/7.28.4
+ERROR: 2023/05/18 21:00:35 logger.go:34: IP: ::1
+ERROR: 2023/05/18 21:00:35 logger.go:35: Status: 409

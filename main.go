@@ -15,12 +15,15 @@ import (
 	"github.com/gin-gonic/contrib/static"
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 var (
 	server      *gin.Engine
 	ctx         context.Context
 	redisClient *redis.Client
+	mongoCLient *mongo.Client
 
 	userRepository repos.IUserRepo
 
@@ -44,14 +47,21 @@ func init() {
 	//Context
 	ctx = context.Background()
 
-	//Create User Repository
-	userRepository = repos.NewUserRepo(ctx)
-
 	if err != nil {
 		panic(err)
 	}
 
 	fmt.Println("user repo succesfully initiated...")
+
+	//Connect to MongoDB
+	mongoConn := options.Client().ApplyURI(config.DBUri)
+	mongoClient, err := mongo.Connect(ctx, mongoConn)
+
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println("mongodb successfully connected...")
 
 	//Connect to Redis
 	redisClient = redis.NewClient(&redis.Options{
@@ -73,7 +83,8 @@ func init() {
 	fmt.Println("redis successfully connected...")
 
 	//Init User Repo
-	err = userRepository.InitRepository(config.DBUri, "Gipitty", "users")
+	userRepository = repos.NewUserRepo(ctx)
+	err = userRepository.InitRepository(mongoClient, "Gipitty", "users")
 	if err != nil {
 		panic(err)
 	}

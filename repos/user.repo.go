@@ -1,6 +1,9 @@
 package repos
 
-import "github.com/AmadoJunior/Gipitty/models"
+import (
+	"github.com/AmadoJunior/Gipitty/models"
+	"go.mongodb.org/mongo-driver/mongo"
+)
 
 type UserUpdate[T any] struct {
 	Key   string
@@ -9,8 +12,7 @@ type UserUpdate[T any] struct {
 
 type IUserRepo interface {
 	//Core
-	connect(dbUri string) error
-	InitRepository(dbUri string, dbName string, repoName string) error
+	InitRepository(client *mongo.Client, dbName string, repoName string) error
 	DeinitRepository() error
 
 	//Public

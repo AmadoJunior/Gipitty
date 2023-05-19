@@ -15,34 +15,17 @@ import (
 
 type UserRepoImpl struct {
 	ctx    context.Context
-	client mongo.Client
-	store  mongo.Collection
+	client *mongo.Client
+	store  *mongo.Collection
 }
 
 func NewUserRepo(ctx context.Context) *UserRepoImpl {
 	return &UserRepoImpl{ctx: ctx}
 }
 
-func (ur *UserRepoImpl) connect(dbUri string) error {
-	//Connect to MongoDB
-	mongoConn := options.Client().ApplyURI(dbUri)
-	mongoClient, err := mongo.Connect(ur.ctx, mongoConn)
-
-	if err != nil {
-		return err
-	}
-
-	ur.client = *mongoClient
-
-	return nil
-}
-
-func (ur *UserRepoImpl) InitRepository(dbUri string, dbName string, repoName string) error {
-	err := ur.connect(dbUri)
-	if err != nil {
-		return utils.GenerateError(ErrUserRepoInit, err)
-	}
-	ur.store = *ur.client.Database(dbName).Collection(repoName)
+func (ur *UserRepoImpl) InitRepository(client *mongo.Client, dbName string, repoName string) error {
+	ur.client = client
+	ur.store = ur.client.Database(dbName).Collection(repoName)
 	return nil
 }
 

@@ -115,7 +115,7 @@ func main() {
 	server.Use(cors.New(corsConfig))
 
 	//Static
-	server.Use(static.Serve("/", static.LocalFile("./public", true)))
+	server.Use(static.Serve("/", static.LocalFile("/home/amado/Documents/Gipitty/public", true)))
 
 	//API
 	router := server.Group("/api")

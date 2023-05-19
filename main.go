@@ -23,7 +23,7 @@ var (
 	server      *gin.Engine
 	ctx         context.Context
 	redisClient *redis.Client
-	mongoCLient *mongo.Client
+	mongoClient *mongo.Client
 
 	userRepository repos.IUserRepo
 
@@ -55,7 +55,7 @@ func init() {
 
 	//Connect to MongoDB
 	mongoConn := options.Client().ApplyURI(config.DBUri)
-	mongoClient, err := mongo.Connect(ctx, mongoConn)
+	mongoClient, err = mongo.Connect(ctx, mongoConn)
 
 	if err != nil {
 		panic(err)

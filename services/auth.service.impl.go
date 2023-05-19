@@ -12,16 +12,16 @@ import (
 	"github.com/AmadoJunior/Gipitty/utils"
 )
 
-type AuthServiceImpl struct {
+type AuthService struct {
 	UserRepo repos.IUserRepo
 	ctx      context.Context
 }
 
-func NewAuthServiceImpl(userRepo repos.IUserRepo, ctx context.Context) AuthService {
-	return &AuthServiceImpl{userRepo, ctx}
+func NewAuthService(userRepo repos.IUserRepo, ctx context.Context) IAuthService {
+	return &AuthService{userRepo, ctx}
 }
 
-func (uc *AuthServiceImpl) SignUpUser(user *models.SignUpInput) (*models.DBResponse, error) {
+func (uc *AuthService) SignUpUser(user *models.SignUpInput) (*models.DBResponse, error) {
 	//Hash Password
 	hashedPassword := make(chan string)
 	errorChannel := make(chan error)
@@ -66,7 +66,7 @@ func (uc *AuthServiceImpl) SignUpUser(user *models.SignUpInput) (*models.DBRespo
 	return newUser, nil
 }
 
-func (uc *AuthServiceImpl) SignInUser(credentials *models.SignInInput, config *config.Config) (string, string, error) {
+func (uc *AuthService) SignInUser(credentials *models.SignInInput, config *config.Config) (string, string, error) {
 	user, err := uc.UserRepo.FindUserByEmail(credentials.Email)
 	if err != nil {
 		//User Not Found
@@ -99,7 +99,7 @@ func (uc *AuthServiceImpl) SignInUser(credentials *models.SignInInput, config *c
 	return access_token, refresh_token, nil
 }
 
-func (uc AuthServiceImpl) RefreshAccessToken(refresh_token string, config *config.Config) (string, error) {
+func (uc AuthService) RefreshAccessToken(refresh_token string, config *config.Config) (string, error) {
 	sub, err := utils.ValidateToken(refresh_token, config.RefreshTokenPublicKey)
 	if err != nil {
 		//Invalid Token

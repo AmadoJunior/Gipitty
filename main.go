@@ -27,8 +27,8 @@ var (
 
 	userRepository repos.IUserRepo
 
-	userService services.UserService
-	authService services.AuthService
+	userService services.IUserService
+	authService services.IAuthService
 
 	AuthController controllers.AuthController
 	UserController controllers.UserController
@@ -90,8 +90,8 @@ func init() {
 	}
 
 	//Auth
-	userService = services.NewUserServiceImpl(userRepository, ctx)
-	authService = services.NewAuthServiceImpl(userRepository, ctx)
+	userService = services.NewUserService(userRepository, ctx)
+	authService = services.NewAuthService(userRepository, ctx)
 
 	AuthController = controllers.NewAuthController(authService, userService)
 	UserController = controllers.NewUserController(userService)

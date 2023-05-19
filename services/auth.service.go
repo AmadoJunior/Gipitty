@@ -5,7 +5,7 @@ import (
 	"github.com/AmadoJunior/Gipitty/models"
 )
 
-type AuthService interface {
+type IAuthService interface {
 	SignUpUser(*models.SignUpInput) (*models.DBResponse, error)
 	SignInUser(*models.SignInInput, *config.Config) (string, string, error)
 	RefreshAccessToken(string, *config.Config) (string, error)

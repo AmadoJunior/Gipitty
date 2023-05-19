@@ -12,16 +12,16 @@ import (
 	"github.com/thanhpk/randstr"
 )
 
-type UserServiceImpl struct {
+type UserService struct {
 	userRepo repos.IUserRepo
 	ctx      context.Context
 }
 
-func NewUserServiceImpl(userRepo repos.IUserRepo, ctx context.Context) UserService {
-	return &UserServiceImpl{userRepo, ctx}
+func NewUserService(userRepo repos.IUserRepo, ctx context.Context) IUserService {
+	return &UserService{userRepo, ctx}
 }
 
-func (us UserServiceImpl) FindUserById(id string) (*models.DBResponse, error) {
+func (us UserService) FindUserById(id string) (*models.DBResponse, error) {
 	user, err := us.userRepo.FindUserByID(id)
 	if err != nil {
 		return nil, utils.GenerateError(ErrUserIDNotFound, err)
@@ -29,7 +29,7 @@ func (us UserServiceImpl) FindUserById(id string) (*models.DBResponse, error) {
 	return user, nil
 }
 
-func (us UserServiceImpl) FindUserByEmail(email string) (*models.DBResponse, error) {
+func (us UserService) FindUserByEmail(email string) (*models.DBResponse, error) {
 	user, err := us.userRepo.FindUserByEmail(email)
 	if err != nil {
 		return nil, utils.GenerateError(ErrUserEmailNotFound, err)
@@ -37,7 +37,7 @@ func (us UserServiceImpl) FindUserByEmail(email string) (*models.DBResponse, err
 	return user, nil
 }
 
-func (us UserServiceImpl) UpdateUserById(id string, data *models.UpdateInput) (*models.DBResponse, error) {
+func (us UserService) UpdateUserById(id string, data *models.UpdateInput) (*models.DBResponse, error) {
 	user, err := us.userRepo.FindAndUpdateUserByID(id, data)
 	if err != nil {
 		return nil, utils.GenerateError(ErrUserIDNotFound, err)
@@ -45,7 +45,7 @@ func (us UserServiceImpl) UpdateUserById(id string, data *models.UpdateInput) (*
 	return user, nil
 }
 
-func (us UserServiceImpl) SendVerificationEmail(newUser *models.DBResponse) error {
+func (us UserService) SendVerificationEmail(newUser *models.DBResponse) error {
 	config, err := config.LoadConfig(".")
 	if err != nil {
 		//Error Loading Config
@@ -101,12 +101,12 @@ func (us UserServiceImpl) SendVerificationEmail(newUser *models.DBResponse) erro
 	return nil
 }
 
-func (us UserServiceImpl) VerifyUserEmail(code string) error {
+func (us UserService) VerifyUserEmail(code string) error {
 	verificationCode := utils.Encode(code)
 	return us.userRepo.VerifyUserEmail(verificationCode)
 }
 
-func (us UserServiceImpl) InitResetPassword(user *models.DBResponse, config *config.Config) error {
+func (us UserService) InitResetPassword(user *models.DBResponse, config *config.Config) error {
 	// Generate Verification Code
 	resetToken := randstr.String(20)
 
@@ -141,7 +141,7 @@ func (us UserServiceImpl) InitResetPassword(user *models.DBResponse, config *con
 	return nil
 }
 
-func (us UserServiceImpl) ResetUserPassword(resetToken string, newPassword string) error {
+func (us UserService) ResetUserPassword(resetToken string, newPassword string) error {
 	errChan := make(chan error)
 	outChan := make(chan string)
 	go func() {

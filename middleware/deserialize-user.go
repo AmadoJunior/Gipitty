@@ -11,7 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func DeserializeUser(userService services.UserService) gin.HandlerFunc {
+func DeserializeUser(userService services.IUserService) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		var access_token string
 		cookie, err := ctx.Cookie("access_token")

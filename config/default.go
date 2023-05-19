@@ -1,6 +1,7 @@
 package config
 
 import (
+	"sync"
 	"time"
 
 	"github.com/spf13/viper"
@@ -28,9 +29,14 @@ type Config struct {
 	SMTPPass  string `mapstructure:"SMTP_PASS"`
 	SMTPPort  int    `mapstructure:"SMTP_PORT"`
 	SMTPUser  string `mapstructure:"SMTP_USER"`
+
+	Env string `mapstructure:"ENV"`
 }
 
-func LoadConfig(path string) (config Config, err error) {
+var env Config
+var once sync.Once
+
+func initConfig(path string) (config *Config, err error) {
 	viper.AddConfigPath(path)
 	viper.SetConfigType("env")
 	viper.SetConfigName("app")
@@ -44,4 +50,15 @@ func LoadConfig(path string) (config Config, err error) {
 
 	err = viper.Unmarshal(&config)
 	return
+}
+
+func LoadConfig(path string) (config *Config, err error) {
+	once.Do(func() {
+		config, err = initConfig(path)
+		if err != nil {
+			return
+		}
+		env = *config
+	})
+	return &env, err
 }
